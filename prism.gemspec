@@ -1,16 +1,21 @@
 # frozen_string_literal: true
 
-Gem::Specification.new do |spec|
-  spec.name = "prism"
-  spec.version = "0.21.0"
-  spec.authors = ["Shopify"]
-  spec.email = ["ruby@shopify.com"]
+VERSION = "0.21.0"
 
-  spec.summary = "Prism Ruby parser"
-  spec.homepage = "https://github.com/ruby/prism"
+Gem::Specification.new do |spec|
+  spec.name = "jruby-prism-parser"
+  spec.version = VERSION
+  spec.authors = ["JRuby Team"]
+  spec.email = ["admin@jruby.org"]
+  spec.platform = 'java'
+
+  spec.summary = "Prism JRuby Parser Support"
+  spec.homepage = "https://github.com/jruby/jruby-prism"
   spec.license = "MIT"
 
   spec.required_ruby_version = ">= 3.0.0"
+
+  spec.requirements << "jar org.jruby, org.jruby.jruby-prism, #{VERSION}"
 
   spec.require_paths = ["lib"]
   spec.files = [
@@ -116,7 +121,8 @@ Gem::Specification.new do |spec|
     "sig/prism.rbs",
     "sig/prism_static.rbs",
     "rbi/prism.rbi",
-    "rbi/prism_static.rbi"
+    "rbi/prism_static.rbi",
+    "jruby-prism-#{VERSION}.jar"
   ]
 
   spec.extensions = ["ext/prism/extconf.rb"]

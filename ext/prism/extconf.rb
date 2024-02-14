@@ -49,8 +49,12 @@ require "rbconfig"
 # `require "mkmf"` as that prepends the LLVM toolchain to PATH on TruffleRuby,
 # but we want to use the native toolchain here since libprism is run natively.
 if RUBY_ENGINE != "ruby"
+  require 'fileutils'
   generate_templates
-  make("build/libprism.#{RbConfig::CONFIG["SOEXT"]}")
+  lib_file = "build/libprism.#{RbConfig::CONFIG["SOEXT"]}"
+  make(lib_file)
+  FileUtils.cp "../../#{lib_file}", RbConfig::CONFIG["libdir"]
+  FileUtils.cp "../../jruby-prism-0.21.0.jar", RbConfig::CONFIG["libdir"]
   File.write("Makefile", "all install clean:\n\t@#{RbConfig::CONFIG["NULLCMD"]}\n")
   return
 end
