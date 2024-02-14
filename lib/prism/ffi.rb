@@ -160,8 +160,13 @@ module Prism
         pointer = FFI::MemoryPointer.new(SIZEOF)
 
         begin
-          raise unless LibRubyParser.pm_string_mapped_init(pointer, filepath)
-          yield new(pointer)
+          raise TypeError unless filepath.is_a?(String)
+
+          if LibRubyParser.pm_string_mapped_init(pointer, filepath)
+            yield new(pointer)
+          else
+            raise SystemCallError.new(filepath, FFI.errno)
+          end
         ensure
           LibRubyParser.pm_string_free(pointer)
           pointer.free
@@ -312,7 +317,7 @@ module Prism
       values << (options.fetch(:frozen_string_literal, false) ? 1 : 0)
 
       template << "C"
-      values << { nil => 0, "3.3.0" => 1, "latest" => 0 }.fetch(options[:version])
+      values << { nil => 0, "3.3.0" => 1, "3.4.0" => 0, "latest" => 0 }.fetch(options[:version])
 
       template << "L"
       if (scopes = options[:scopes])

@@ -52,7 +52,7 @@ To compile the shared library, you will need:
 
 * C99 compiler
 * make
-* Ruby 3.0.0 or later
+* Ruby 2.7.0 or later
 
 Once you have these dependencies, run:
 
@@ -93,5 +93,6 @@ See the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information. We additio
 * [Releasing](docs/releasing.md)
 * [Ripper](docs/ripper.md)
 * [Ruby API](docs/ruby_api.md)
+* [RubyParser translation](docs/ruby_parser_translation.md)
 * [Serialization](docs/serialization.md)
 * [Testing](docs/testing.md)

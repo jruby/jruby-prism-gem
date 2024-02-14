@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-VERSION = "0.21.0"
+VERSION = "0.23.0"
 
 Gem::Specification.new do |spec|
   spec.name = "jruby-prism-parser"
@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
   spec.homepage = "https://github.com/jruby/jruby-prism"
   spec.license = "MIT"
 
-  spec.required_ruby_version = ">= 3.0.0"
+  spec.required_ruby_version = ">= 2.7.0"
 
   spec.requirements << "jar org.jruby, org.jruby.jruby-prism, #{VERSION}"
 
@@ -41,6 +41,7 @@ Gem::Specification.new do |spec|
     "docs/releasing.md",
     "docs/ripper.md",
     "docs/ruby_api.md",
+    "docs/ruby_parser_translation.md",
     "docs/serialization.md",
     "docs/testing.md",
     "ext/prism/api_node.c",
@@ -88,13 +89,14 @@ Gem::Specification.new do |spec|
     "lib/prism/parse_result/comments.rb",
     "lib/prism/parse_result/newlines.rb",
     "lib/prism/pattern.rb",
-    "lib/prism/ripper_compat.rb",
     "lib/prism/serialize.rb",
     "lib/prism/translation.rb",
     "lib/prism/translation/parser.rb",
     "lib/prism/translation/parser/compiler.rb",
     "lib/prism/translation/parser/lexer.rb",
     "lib/prism/translation/parser/rubocop.rb",
+    "lib/prism/translation/ripper.rb",
+    "lib/prism/translation/ruby_parser.rb",
     "lib/prism/visitor.rb",
     "src/diagnostic.c",
     "src/encoding.c",

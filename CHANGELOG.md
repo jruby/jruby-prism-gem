@@ -6,6 +6,43 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.23.0] - 2024-02-14
+
+### Added
+
+- More support for `Prism::RipperCompat` is added.
+- A significantly faster offset cache for `Prism::Translation::Parser` is added for files with multibyte characters.
+- `Prism::Translation::RubyParser` is added.
+- `Prism::ConstantPathTarget#full_name` is added.
+- `version: "3.4.0"` is added as an option that is an alias for `version: "latest"`.
+- Four new APIs are added to `Prism::Location`:
+  - `Prism::Location#start_code_units_offset`
+  - `Prism::Location#end_code_units_offset`
+  - `Prism::Location#start_code_units_column`
+  - `Prism::Location#end_code_units_column`
+- Invalid multibyte characters are now validated within strings, lists, and heredocs.
+
+### Changed
+
+- When defining `def !@`, the `name_loc` was previously only pointing to `!`, but now includes the `@`. The `name` is the same.
+- `Prism::RipperCompat` has been moved to `Prism::Translation::Ripper`.
+- Many of the error messages that prism produces have been changed to match the error messages that CRuby produces.
+
+## [0.22.0] - 2024-02-07
+
+### Added
+
+- More support for `Prism::RipperCompat` is added.
+- Support for Ruby 2.7 has been added, and the minimum Ruby requirement has been lowered to 2.7.
+
+### Changed
+
+- The error for an invalid source encoding has a new `:argument` level to indicate it raises an argument error.
+- `BeginNode` nodes that are used when a class, singleton class, module, method definition, or block have an inline `rescue`/`ensure`/`else` now have their opening locations set to the beginning of the respective keyword.
+- Improved error messages for invalid characters.
+- `Prism.parse_file` and similar APIs will raise more appropriate errors when the file does not exist or cannot be mapped.
+- Correctly handle the `recover` parameter for `Prism::Translation::Parser`.
+
 ## [0.21.0] - 2024-02-05
 
 ### Added
@@ -341,7 +378,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - 🎉 Initial release! 🎉
 
-[unreleased]: https://github.com/ruby/prism/compare/v0.21.0...HEAD
+[unreleased]: https://github.com/ruby/prism/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/ruby/prism/compare/v0.22.0...v0.23.0
+[0.22.0]: https://github.com/ruby/prism/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/ruby/prism/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/ruby/prism/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/ruby/prism/compare/v0.18.0...v0.19.0
