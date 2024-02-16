@@ -50,12 +50,11 @@ require "rbconfig"
 # but we want to use the native toolchain here since libprism is run natively.
 if RUBY_ENGINE != "ruby"
   require 'fileutils'
-  require_relative '../../lib/prism/version'
   generate_templates
   lib_file = "build/libprism.#{RbConfig::CONFIG["SOEXT"]}"
   make(lib_file)
   FileUtils.cp "../../#{lib_file}", RbConfig::CONFIG["libdir"]
-  FileUtils.cp "../../jruby-prism-#{Prism::VERSION}.jar", "#{RbConfig::CONFIG['libdir']}/jruby-prism.jar"
+  FileUtils.cp "../../jruby-prism.jar", "#{RbConfig::CONFIG['libdir']}/jruby-prism.jar"
   File.write("Makefile", "all install clean:\n\t@#{RbConfig::CONFIG["NULLCMD"]}\n")
   return
 end

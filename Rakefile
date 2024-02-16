@@ -71,7 +71,6 @@ Prism::TEMPLATES.each do |filepath|
 end
 
 task :vendor_jar do
-#  ENV["JARS_DEBUG"]="true"
   ENV["JARS_HOME"]='.'
 
   require 'jars/installer'
@@ -79,8 +78,11 @@ task :vendor_jar do
   require_relative 'lib/prism/version'
   Jars::Installer.vendor_jars!
 
+  # I am doing something weird to bend jars installer to my will.
   FileUtils.rm_rf "home" if FileTest.exist? "home"
   Dir['*.jar'].each do |file|
-    FileUtils.rm file unless file =~ /^jruby-prism-#{Prism::VERSION}.jar/
+    FileUtils.rm file unless file == "jruby-prism-#{Prism::VERSION}.jar"
   end
+
+  FileUtils.mv "jruby-prism-#{Prism::VERSION}.jar", 'jruby-prism.jar'
 end

@@ -125,7 +125,7 @@ Gem::Specification.new do |spec|
     "rbi/prism.rbi",
     "rbi/prism_static.rbi",
     "lib/prism/version.rb",
-    "jruby-prism-#{Prism::VERSION}.jar"
+    "jruby-prism.jar"
   ]
 
   spec.extensions = ["ext/prism/extconf.rb"]
