@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-VERSION = "0.23.0"
+require_relative 'lib/prism/version'
 
 Gem::Specification.new do |spec|
   spec.name = "jruby-prism-parser"
-  spec.version = VERSION
+  spec.version = Prism::VERSION
   spec.authors = ["JRuby Team"]
   spec.email = ["admin@jruby.org"]
   spec.platform = 'java'
@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = ">= 2.7.0"
 
-  spec.requirements << "jar org.jruby, org.jruby.jruby-prism, #{VERSION}"
+  spec.requirements << "jar org.jruby, jruby-prism, #{Prism::VERSION}, :scope => :runtime"
 
   spec.require_paths = ["lib"]
   spec.files = [
@@ -124,7 +124,8 @@ Gem::Specification.new do |spec|
     "sig/prism_static.rbs",
     "rbi/prism.rbi",
     "rbi/prism_static.rbi",
-    "jruby-prism-#{VERSION}.jar"
+    "lib/prism/version.rb",
+    "jruby-prism-#{Prism::VERSION}.jar"
   ]
 
   spec.extensions = ["ext/prism/extconf.rb"]

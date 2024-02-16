@@ -32,7 +32,7 @@ task make_no_debug: [:templates] do
 end
 
 # decorate the gem build task with prerequisites
-task build: [:templates, :check_manifest]
+task build: [:templates, :vendor_jar, :check_manifest]
 
 # the C extension
 task "compile:prism" => ["templates"] # must be before the ExtensionTask is created
@@ -67,5 +67,20 @@ Prism::TEMPLATES.each do |filepath|
   desc "Generate #{filepath}"
   file filepath => ["templates/#{filepath}.erb", "templates/template.rb", "config.yml"] do |t|
     Prism.template(t.name)
+  end
+end
+
+task :vendor_jar do
+#  ENV["JARS_DEBUG"]="true"
+  ENV["JARS_HOME"]='.'
+
+  require 'jars/installer'
+  require 'fileutils'
+  require_relative 'lib/prism/version'
+  Jars::Installer.vendor_jars!
+
+  FileUtils.rm_rf "home" if FileTest.exist? "home"
+  Dir['*.jar'].each do |file|
+    FileUtils.rm file unless file =~ /^jruby-prism-#{Prism::VERSION}.jar/
   end
 end

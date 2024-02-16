@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    prism (0.23.0)
+    jruby-prism-parser (0.23.0.pre.SNAPSHOT-java)
 
 GEM
   remote: https://rubygems.org/
@@ -13,11 +13,14 @@ GEM
     nokogiri (1.16.2)
       mini_portile2 (~> 2.8.2)
       racc (~> 1.4)
+    nokogiri (1.16.2-java)
+      racc (~> 1.4)
     parser (3.3.0.5)
       ast (~> 2.4.1)
       racc
     power_assert (2.0.3)
     racc (1.7.3)
+    racc (1.7.3-java)
     rake (13.1.0)
     rake-compiler (1.2.6)
       rake
@@ -34,12 +37,12 @@ GEM
 
 PLATFORMS
   arm64-darwin-23
-  ruby
+  universal-java-1.8
 
 DEPENDENCIES
   ffi
+  jruby-prism-parser!
   parser
-  prism!
   rake
   rake-compiler
   rbs
@@ -48,4 +51,4 @@ DEPENDENCIES
   test-unit
 
 BUNDLED WITH
-   2.6.0.dev
+   2.3.26
