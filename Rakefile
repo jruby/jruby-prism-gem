@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+ENV["PRISM_JAVA_BACKEND"]="jruby"
+ENV["PRISM_SERIALIZE_ONLY_SEMANTICS_FIELDS"]="1"
+
+
 require "bundler/gem_tasks"
 require "rake/extensiontask"
 require "rake/clean"
