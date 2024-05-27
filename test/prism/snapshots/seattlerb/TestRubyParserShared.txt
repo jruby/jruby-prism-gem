@@ -70,7 +70,7 @@
         │   ├── opening_loc: (26,0)-(26,3) = "%i["
         │   └── closing_loc: (29,0)-(29,1) = "]"
         ├── @ RegularExpressionNode (location: (31,0)-(34,1))
-        │   ├── flags: ∅
+        │   ├── flags: forced_us_ascii_encoding
         │   ├── opening_loc: (31,0)-(31,3) = "%r["
         │   ├── content_loc: (31,3)-(34,0) = "\n\n\n"
         │   ├── closing_loc: (34,0)-(34,1) = "]"
@@ -203,7 +203,8 @@
         │   │           │           ├── name_loc: (61,4)-(61,5) = "Z"
         │   │           │           ├── value:
         │   │           │           │   @ IntegerNode (location: (61,8)-(61,10))
-        │   │           │           │   └── flags: decimal
+        │   │           │           │   ├── flags: decimal
+        │   │           │           │   └── value: 42
         │   │           │           └── operator_loc: (61,6)-(61,7) = "="
         │   │           ├── end_keyword_loc: (62,2)-(62,5) = "end"
         │   │           └── name: :Y
@@ -326,7 +327,8 @@
         │   │           │           ├── name_loc: (84,4)-(84,5) = "Z"
         │   │           │           ├── value:
         │   │           │           │   @ IntegerNode (location: (84,8)-(84,10))
-        │   │           │           │   └── flags: decimal
+        │   │           │           │   ├── flags: decimal
+        │   │           │           │   └── value: 42
         │   │           │           └── operator_loc: (84,6)-(84,7) = "="
         │   │           ├── end_keyword_loc: (85,2)-(85,5) = "end"
         │   │           └── name: :Y

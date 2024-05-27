@@ -73,6 +73,25 @@ and links to `libprism.a` (to avoid exporting symbols, so no conflict when insta
 
 TODO, similar to TruffleRuby.
 
+### Building prism for embedded system
+
+For instance, you can build a static library `libprism.a` targeting the Arm Cortex-M0+ embedded system by the commands below:
+
+* `templates/template.rb`
+* `CFLAGS="-mcpu=cortex-m0plus" make static CC=arm-none-eabi-gcc`
+
+The build process internally looks up `_POSIX_MAPPED_FILES` and `_WIN32` macros to determine whether the functions of the memory map are available on the target platform.
+
+### Building prism with custom memory allocator
+
+If you need to use memory allocation functions implemented outside of the standard library, follow these steps:
+
+* Add `-D PRISM_XALLOCATOR` to the build options
+* Additionally, include `-I [path/to/custom_allocator]` where your `prism_xallocator.h` is located
+* Link the implementation of `prism_xallocator.c` that contains functions declared in `prism_xallocator.h`
+
+For further clarity, refer to `include/prism/defines.h`.
+
 ### Building prism from source as a C library
 
 All of the source files match `src/**/*.c` and all of the headers match `include/**/*.h`.
@@ -89,3 +108,15 @@ If you want to build prism as a shared library and link against it, you should c
 ```
 MAKEFLAGS="-j10" bundle exec rake compile
 ```
+
+## Build options
+
+* `PRISM_BUILD_DEBUG` - Will cause all file reading to copy into its own allocation to allow easier tracking of reading off the end of the buffer. By default this is off.
+* `PRISM_BUILD_MINIMAL` - Define all of the `PRISM_EXCLUDE_*` flags at once.
+* `PRISM_ENCODING_EXCLUDE_FULL` - Will cause the library to exclude the full encoding API, and only include the minimal number of encodings to support parsing Ruby code without encoding comments. By default this is off.
+* `PRISM_EXPORT_SYMBOLS` - Will cause the shared library to export symbols. By default this is off.
+* `PRISM_EXCLUDE_JSON` - Will cause the library to exclude the JSON API. By default this is off.
+* `PRISM_EXCLUDE_PACK` - Will cause the library to exclude the pack API. By default this is off.
+* `PRISM_EXCLUDE_PRETTYPRINT` - Will cause the library to exclude the prettyprint API. By default this is off.
+* `PRISM_EXCLUDE_SERIALIZATION` - Will cause the library to exclude the serialization API. By default this is off.
+* `PRISM_XALLOCATOR` - Will cause the library to use the custom memory allocator. By default this is off.

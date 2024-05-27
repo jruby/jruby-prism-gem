@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# typed: ignore
 
 # This file is responsible for mirroring the API provided by the C extension by
 # using FFI to call into the shared library.
@@ -7,8 +8,6 @@ require "rbconfig"
 require "ffi"
 
 module Prism
-  BACKEND = :FFI
-
   module LibRubyParser # :nodoc:
     extend FFI::Library
 
@@ -24,15 +23,21 @@ module Prism
     #     size_t       -> :size_t
     #     void         -> :void
     #
-    def self.resolve_type(type)
+    def self.resolve_type(type, callbacks)
       type = type.strip
-      type.end_with?("*") ? :pointer : type.delete_prefix("const ").to_sym
+
+      if !type.end_with?("*")
+        type.delete_prefix("const ").to_sym
+      else
+        type = type.delete_suffix("*").rstrip
+        callbacks.include?(type.to_sym) ? type.to_sym : :pointer
+      end
     end
 
     # Read through the given header file and find the declaration of each of the
     # given functions. For each one, define a function with the same name and
     # signature as the C function.
-    def self.load_exported_functions_from(header, *functions)
+    def self.load_exported_functions_from(header, *functions, callbacks)
       File.foreach(File.expand_path("../../include/#{header}", __dir__)) do |line|
         # We only want to attempt to load exported functions.
         next unless line.start_with?("PRISM_EXPORTED_FUNCTION ")
@@ -56,24 +61,28 @@ module Prism
 
         # Resolve the type of the argument by dropping the name of the argument
         # first if it is present.
-        arg_types.map! { |type| resolve_type(type.sub(/\w+$/, "")) }
+        arg_types.map! { |type| resolve_type(type.sub(/\w+$/, ""), callbacks) }
 
         # Attach the function using the FFI library.
-        attach_function name, arg_types, resolve_type(return_type)
+        attach_function name, arg_types, resolve_type(return_type, [])
       end
 
       # If we didn't find all of the functions, raise an error.
       raise "Could not find functions #{functions.inspect}" unless functions.empty?
     end
 
+    callback :pm_parse_stream_fgets_t, [:pointer, :int, :pointer], :pointer
+
     load_exported_functions_from(
       "prism.h",
       "pm_version",
       "pm_serialize_parse",
+      "pm_serialize_parse_stream",
       "pm_serialize_parse_comments",
       "pm_serialize_lex",
       "pm_serialize_parse_lex",
-      "pm_parse_success_p"
+      "pm_parse_success_p",
+      [:pm_parse_stream_fgets_t]
     )
 
     load_exported_functions_from(
@@ -82,7 +91,8 @@ module Prism
       "pm_buffer_init",
       "pm_buffer_value",
       "pm_buffer_length",
-      "pm_buffer_free"
+      "pm_buffer_free",
+      []
     )
 
     load_exported_functions_from(
@@ -91,7 +101,8 @@ module Prism
       "pm_string_free",
       "pm_string_source",
       "pm_string_length",
-      "pm_string_sizeof"
+      "pm_string_sizeof",
+      []
     )
 
     # This object represents a pm_buffer_t. We only use it as an opaque pointer,
@@ -216,11 +227,34 @@ module Prism
     end
 
     # Mirror the Prism.parse_file API by using the serialization API. This uses
-    # native strings instead of Ruby strings because it allows us to use mmap when
-    # it is available.
+    # native strings instead of Ruby strings because it allows us to use mmap
+    # when it is available.
     def parse_file(filepath, **options)
       options[:filepath] = filepath
       LibRubyParser::PrismString.with_file(filepath) { |string| parse_common(string, string.read, options) }
+    end
+
+    # Mirror the Prism.parse_stream API by using the serialization API.
+    def parse_stream(stream, **options)
+      LibRubyParser::PrismBuffer.with do |buffer|
+        source = +""
+        callback = -> (string, size, _) {
+          raise "Expected size to be >= 0, got: #{size}" if size <= 0
+
+          if !(line = stream.gets(size - 1)).nil?
+            source << line
+            string.write_string("#{line}\x00", line.bytesize + 1)
+          end
+        }
+
+        # In the pm_serialize_parse_stream function it accepts a pointer to the
+        # IO object as a void* and then passes it through to the callback as the
+        # third argument, but it never touches it itself. As such, since we have
+        # access to the IO object already through the closure of the lambda, we
+        # can pass a null pointer here and not worry.
+        LibRubyParser.pm_serialize_parse_stream(buffer.pointer, nil, callback, dump_options(options))
+        Prism.load(source, buffer.read)
+      end
     end
 
     # Mirror the Prism.parse_comments API by using the serialization API.
@@ -252,10 +286,20 @@ module Prism
       LibRubyParser::PrismString.with_string(code) { |string| parse_file_success_common(string, options) }
     end
 
+    # Mirror the Prism.parse_failure? API by using the serialization API.
+    def parse_failure?(code, **options)
+      !parse_success?(code, **options)
+    end
+
     # Mirror the Prism.parse_file_success? API by using the serialization API.
     def parse_file_success?(filepath, **options)
       options[:filepath] = filepath
       LibRubyParser::PrismString.with_file(filepath) { |string| parse_file_success_common(string, options) }
+    end
+
+    # Mirror the Prism.parse_file_failure? API by using the serialization API.
+    def parse_file_failure?(filepath, **options)
+      !parse_file_success?(filepath, **options)
     end
 
     private
@@ -273,7 +317,7 @@ module Prism
         buffer.read
       end
 
-      Serialize.load_tokens(Source.new(code), serialized)
+      Serialize.load_tokens(Source.for(code), serialized)
     end
 
     def parse_common(string, code, options) # :nodoc:
@@ -285,7 +329,7 @@ module Prism
       LibRubyParser::PrismBuffer.with do |buffer|
         LibRubyParser.pm_serialize_parse_comments(buffer.pointer, string.pointer, string.length, dump_options(options))
 
-        source = Source.new(code)
+        source = Source.for(code)
         loader = Serialize::Loader.new(source, buffer.read)
 
         loader.load_header
@@ -299,19 +343,37 @@ module Prism
       LibRubyParser::PrismBuffer.with do |buffer|
         LibRubyParser.pm_serialize_parse_lex(buffer.pointer, string.pointer, string.length, dump_options(options))
 
-        source = Source.new(code)
+        source = Source.for(code)
         loader = Serialize::Loader.new(source, buffer.read)
 
         tokens = loader.load_tokens
         node, comments, magic_comments, data_loc, errors, warnings = loader.load_nodes
         tokens.each { |token,| token.value.force_encoding(loader.encoding) }
 
-        ParseResult.new([node, tokens], comments, magic_comments, data_loc, errors, warnings, source)
+        ParseLexResult.new([node, tokens], comments, magic_comments, data_loc, errors, warnings, source)
       end
     end
 
     def parse_file_success_common(string, options) # :nodoc:
       LibRubyParser.pm_parse_success_p(string.pointer, string.length, dump_options(options))
+    end
+
+    # Return the value that should be dumped for the command_line option.
+    def dump_options_command_line(options)
+      command_line = options.fetch(:command_line, "")
+      raise ArgumentError, "command_line must be a string" unless command_line.is_a?(String)
+
+      command_line.each_char.inject(0) do |value, char|
+        case char
+        when "a" then value | 0b000001
+        when "e" then value | 0b000010
+        when "l" then value | 0b000100
+        when "n" then value | 0b001000
+        when "p" then value | 0b010000
+        when "x" then value | 0b100000
+        else raise ArgumentError, "invalid command_line option: #{char}"
+        end
+      end
     end
 
     # Convert the given options into a serialized options string.
@@ -332,7 +394,7 @@ module Prism
 
       template << "L"
       if (encoding = options[:encoding])
-        name = encoding.name
+        name = encoding.is_a?(Encoding) ? encoding.name : encoding
         values.push(name.bytesize, name.b)
         template << "A*"
       else
@@ -343,7 +405,10 @@ module Prism
       values << (options.fetch(:frozen_string_literal, false) ? 1 : 0)
 
       template << "C"
-      values << { nil => 0, "3.3.0" => 1, "3.4.0" => 0, "latest" => 0 }.fetch(options[:version])
+      values << dump_options_command_line(options)
+
+      template << "C"
+      values << { nil => 0, "3.3.0" => 1, "3.3.1" => 1, "3.4.0" => 0, "latest" => 0 }.fetch(options[:version])
 
       template << "L"
       if (scopes = options[:scopes])

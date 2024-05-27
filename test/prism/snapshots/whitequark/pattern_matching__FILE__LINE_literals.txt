@@ -9,6 +9,7 @@
             │   ├── flags: ∅
             │   ├── elements: (length: 3)
             │   │   ├── @ SourceFileNode (location: (1,14)-(1,22))
+            │   │   │   ├── flags: ∅
             │   │   │   └── filepath: "whitequark/pattern_matching__FILE__LINE_literals.txt"
             │   │   ├── @ CallNode (location: (1,24)-(1,36))
             │   │   │   ├── flags: ∅
@@ -23,7 +24,8 @@
             │   │   │   │   ├── flags: ∅
             │   │   │   │   └── arguments: (length: 1)
             │   │   │   │       └── @ IntegerNode (location: (1,35)-(1,36))
-            │   │   │   │           └── flags: decimal
+            │   │   │   │           ├── flags: decimal
+            │   │   │   │           └── value: 1
             │   │   │   ├── closing_loc: ∅
             │   │   │   └── block: ∅
             │   │   └── @ SourceEncodingNode (location: (1,38)-(1,50))
@@ -36,6 +38,7 @@
             │       │   ├── constant: ∅
             │       │   ├── requireds: (length: 3)
             │       │   │   ├── @ SourceFileNode (location: (2,14)-(2,22))
+            │       │   │   │   ├── flags: ∅
             │       │   │   │   └── filepath: "whitequark/pattern_matching__FILE__LINE_literals.txt"
             │       │   │   ├── @ SourceLineNode (location: (2,24)-(2,32))
             │       │   │   └── @ SourceEncodingNode (location: (2,34)-(2,46))

@@ -5,6 +5,14 @@ module Prism
   # conjunction with locations to allow them to resolve line numbers and source
   # ranges.
   class Source
+    # Create a new source object with the given source code. This method should
+    # be used instead of `new` and it will return either a `Source` or a
+    # specialized and more performant `ASCIISource` if no multibyte characters
+    # are present in the source code.
+    def self.for(source, start_line = 1, offsets = [])
+      source.ascii_only? ? ASCIISource.new(source, start_line, offsets): new(source, start_line, offsets)
+    end
+
     # The source code that this source object represents.
     attr_reader :source
 
@@ -21,10 +29,21 @@ module Prism
       @offsets = offsets # set after parsing is done
     end
 
+    # Returns the encoding of the source code, which is set by parameters to the
+    # parser or by the encoding magic comment.
+    def encoding
+      source.encoding
+    end
+
+    # Returns the lines of the source code as an array of strings.
+    def lines
+      source.lines
+    end
+
     # Perform a byteslice on the source code using the given byte offset and
     # byte length.
     def slice(byte_offset, length)
-      source.byteslice(byte_offset, length)
+      source.byteslice(byte_offset, length) or raise
     end
 
     # Binary search through the offsets to find the line number for the given
@@ -39,6 +58,12 @@ module Prism
       offsets[find_line(byte_offset)]
     end
 
+    # Returns the byte offset of the end of the line corresponding to the given
+    # byte offset.
+    def line_end(byte_offset)
+      offsets[find_line(byte_offset) + 1] || source.bytesize
+    end
+
     # Return the column number for the given byte offset.
     def column(byte_offset)
       byte_offset - line_start(byte_offset)
@@ -46,7 +71,7 @@ module Prism
 
     # Return the character offset for the given byte offset.
     def character_offset(byte_offset)
-      source.byteslice(0, byte_offset).length
+      (source.byteslice(0, byte_offset) or raise).length
     end
 
     # Return the column number in characters for the given byte offset.
@@ -61,7 +86,7 @@ module Prism
     # concept of code units that differs from the number of characters in other
     # encodings, it is not captured here.
     def code_units_offset(byte_offset, encoding)
-      byteslice = source.byteslice(0, byte_offset).encode(encoding)
+      byteslice = (source.byteslice(0, byte_offset) or raise).encode(encoding)
       (encoding == Encoding::UTF_16LE || encoding == Encoding::UTF_16BE) ? (byteslice.bytesize / 2) : byteslice.length
     end
 
@@ -81,9 +106,9 @@ module Prism
 
       while left <= right
         mid = left + (right - left) / 2
-        return mid if offsets[mid] == byte_offset
+        return mid if (offset = offsets[mid]) == byte_offset
 
-        if offsets[mid] < byte_offset
+        if offset < byte_offset
           left = mid + 1
         else
           right = mid - 1
@@ -91,6 +116,39 @@ module Prism
       end
 
       left - 1
+    end
+  end
+
+  # Specialized version of Prism::Source for source code that includes ASCII
+  # characters only. This class is used to apply performance optimizations that
+  # cannot be applied to sources that include multibyte characters. Sources that
+  # include multibyte characters are represented by the Prism::Source class.
+  class ASCIISource < Source
+    # Return the character offset for the given byte offset.
+    def character_offset(byte_offset)
+      byte_offset
+    end
+
+    # Return the column number in characters for the given byte offset.
+    def character_column(byte_offset)
+      byte_offset - line_start(byte_offset)
+    end
+
+    # Returns the offset from the start of the file for the given byte offset
+    # counting in code units for the given encoding.
+    #
+    # This method is tested with UTF-8, UTF-16, and UTF-32. If there is the
+    # concept of code units that differs from the number of characters in other
+    # encodings, it is not captured here.
+    def code_units_offset(byte_offset, encoding)
+      byte_offset
+    end
+
+    # Specialized version of `code_units_column` that does not depend on
+    # `code_units_offset`, which is a more expensive operation. This is
+    # essentialy the same as `Prism::Source#column`.
+    def code_units_column(byte_offset, encoding)
+      byte_offset - line_start(byte_offset)
     end
   end
 
@@ -108,25 +166,56 @@ module Prism
     # The length of this location in bytes.
     attr_reader :length
 
-    # The list of comments attached to this location
-    attr_reader :comments
-
     # Create a new location object with the given source, start byte offset, and
     # byte length.
     def initialize(source, start_offset, length)
       @source = source
       @start_offset = start_offset
       @length = length
-      @comments = []
+
+      # These are used to store comments that are associated with this location.
+      # They are initialized to `nil` to save on memory when there are no
+      # comments to be attached and/or the comment-related APIs are not used.
+      @leading_comments = nil
+      @trailing_comments = nil
+    end
+
+    # These are the comments that are associated with this location that exist
+    # before the start of this location.
+    def leading_comments
+      @leading_comments ||= []
+    end
+
+    # Attach a comment to the leading comments of this location.
+    def leading_comment(comment)
+      leading_comments << comment
+    end
+
+    # These are the comments that are associated with this location that exist
+    # after the end of this location.
+    def trailing_comments
+      @trailing_comments ||= []
+    end
+
+    # Attach a comment to the trailing comments of this location.
+    def trailing_comment(comment)
+      trailing_comments << comment
+    end
+
+    # Returns all comments that are associated with this location (both leading
+    # and trailing comments).
+    def comments
+      [*@leading_comments, *@trailing_comments]
     end
 
     # Create a new location object with the given options.
-    def copy(**options)
-      Location.new(
-        options.fetch(:source) { source },
-        options.fetch(:start_offset) { start_offset },
-        options.fetch(:length) { length }
-      )
+    def copy(source: self.source, start_offset: self.start_offset, length: self.length)
+      Location.new(source, start_offset, length)
+    end
+
+    # Returns a new location that is the result of chopping off the last byte.
+    def chop
+      copy(length: length == 0 ? length : length - 1)
     end
 
     # Returns a string representation of this location.
@@ -134,9 +223,23 @@ module Prism
       "#<Prism::Location @start_offset=#{@start_offset} @length=#{@length} start_line=#{start_line}>"
     end
 
+    # Returns all of the lines of the source code associated with this location.
+    def source_lines
+      source.lines
+    end
+
     # The source code that this location represents.
     def slice
       source.slice(start_offset, length)
+    end
+
+    # The source code that this location represents starting from the beginning
+    # of the line that this location starts on to the end of the line that this
+    # location ends on.
+    def slice_lines
+      line_start = source.line_start(start_offset)
+      line_end = source.line_end(end_offset)
+      source.slice(line_start, line_end - line_start)
     end
 
     # The character offset from the beginning of the source where this location
@@ -230,7 +333,7 @@ module Prism
 
     # Returns true if the given other location is equal to this location.
     def ==(other)
-      other.is_a?(Location) &&
+      Location === other &&
         other.start_offset == start_offset &&
         other.end_offset == end_offset
     end
@@ -245,11 +348,16 @@ module Prism
       Location.new(source, start_offset, other.end_offset - start_offset)
     end
 
-    # Returns a null location that does not correspond to a source and points to
-    # the beginning of the file. Useful for when you want a location object but
-    # do not care where it points.
-    def self.null
-      new(nil, 0, 0)
+    # Join this location with the first occurrence of the string in the source
+    # that occurs after this location on the same line, and return the new
+    # location. This will raise an error if the string does not exist.
+    def adjoin(string)
+      line_suffix = source.slice(end_offset, source.line_end(end_offset) - end_offset)
+
+      line_suffix_index = line_suffix.byteindex(string)
+      raise "Could not find #{string}" if line_suffix_index.nil?
+
+      Location.new(source, start_offset, length + line_suffix_index + string.bytesize)
     end
   end
 
@@ -267,6 +375,11 @@ module Prism
     # Implement the hash pattern matching interface for Comment.
     def deconstruct_keys(keys)
       { location: location }
+    end
+
+    # Returns the content of the comment by slicing it from the source code.
+    def slice
+      location.slice
     end
   end
 
@@ -336,6 +449,10 @@ module Prism
 
   # This represents an error that was encountered during parsing.
   class ParseError
+    # The type of error. This is an _internal_ symbol that is used for
+    # communicating with translation layers. It is not meant to be public API.
+    attr_reader :type
+
     # The message associated with this error.
     attr_reader :message
 
@@ -346,7 +463,8 @@ module Prism
     attr_reader :level
 
     # Create a new error object with the given message and location.
-    def initialize(message, location, level)
+    def initialize(type, message, location, level)
+      @type = type
       @message = message
       @location = location
       @level = level
@@ -354,17 +472,21 @@ module Prism
 
     # Implement the hash pattern matching interface for ParseError.
     def deconstruct_keys(keys)
-      { message: message, location: location, level: level }
+      { type: type, message: message, location: location, level: level }
     end
 
     # Returns a string representation of this error.
     def inspect
-      "#<Prism::ParseError @message=#{@message.inspect} @location=#{@location.inspect} @level=#{@level.inspect}>"
+      "#<Prism::ParseError @type=#{@type.inspect} @message=#{@message.inspect} @location=#{@location.inspect} @level=#{@level.inspect}>"
     end
   end
 
   # This represents a warning that was encountered during parsing.
   class ParseWarning
+    # The type of warning. This is an _internal_ symbol that is used for
+    # communicating with translation layers. It is not meant to be public API.
+    attr_reader :type
+
     # The message associated with this warning.
     attr_reader :message
 
@@ -375,7 +497,8 @@ module Prism
     attr_reader :level
 
     # Create a new warning object with the given message and location.
-    def initialize(message, location, level)
+    def initialize(type, message, location, level)
+      @type = type
       @message = message
       @location = location
       @level = level
@@ -383,24 +506,19 @@ module Prism
 
     # Implement the hash pattern matching interface for ParseWarning.
     def deconstruct_keys(keys)
-      { message: message, location: location, level: level }
+      { type: type, message: message, location: location, level: level }
     end
 
     # Returns a string representation of this warning.
     def inspect
-      "#<Prism::ParseWarning @message=#{@message.inspect} @location=#{@location.inspect} @level=#{@level.inspect}>"
+      "#<Prism::ParseWarning @type=#{@type.inspect} @message=#{@message.inspect} @location=#{@location.inspect} @level=#{@level.inspect}>"
     end
   end
 
   # This represents the result of a call to ::parse or ::parse_file. It contains
-  # the AST, any comments that were encounters, and any errors that were
-  # encountered.
-  class ParseResult
-    # The value that was generated by parsing. Normally this holds the AST, but
-    # it can sometimes how a list of tokens or other results passed back from
-    # the parser.
-    attr_reader :value
-
+  # the requested structure, any comments that were encounters, and any errors
+  # that were encountered.
+  class Result
     # The list of comments that were encountered during parsing.
     attr_reader :comments
 
@@ -421,9 +539,8 @@ module Prism
     # A Source instance that represents the source code that was parsed.
     attr_reader :source
 
-    # Create a new parse result object with the given values.
-    def initialize(value, comments, magic_comments, data_loc, errors, warnings, source)
-      @value = value
+    # Create a new result object with the given values.
+    def initialize(comments, magic_comments, data_loc, errors, warnings, source)
       @comments = comments
       @magic_comments = magic_comments
       @data_loc = data_loc
@@ -432,9 +549,14 @@ module Prism
       @source = source
     end
 
-    # Implement the hash pattern matching interface for ParseResult.
+    # Implement the hash pattern matching interface for Result.
     def deconstruct_keys(keys)
-      { value: value, comments: comments, magic_comments: magic_comments, data_loc: data_loc, errors: errors, warnings: warnings }
+      { comments: comments, magic_comments: magic_comments, data_loc: data_loc, errors: errors, warnings: warnings }
+    end
+
+    # Returns the encoding of the source code that was parsed.
+    def encoding
+      source.encoding
     end
 
     # Returns true if there were no errors during parsing and false if there
@@ -447,6 +569,75 @@ module Prism
     # not.
     def failure?
       !success?
+    end
+  end
+
+  # This is a result specific to the `parse` and `parse_file` methods.
+  class ParseResult < Result
+    autoload :Comments, "prism/parse_result/comments"
+    autoload :Newlines, "prism/parse_result/newlines"
+
+    private_constant :Comments
+    private_constant :Newlines
+
+    # The syntax tree that was parsed from the source code.
+    attr_reader :value
+
+    # Create a new parse result object with the given values.
+    def initialize(value, comments, magic_comments, data_loc, errors, warnings, source)
+      @value = value
+      super(comments, magic_comments, data_loc, errors, warnings, source)
+    end
+
+    # Implement the hash pattern matching interface for ParseResult.
+    def deconstruct_keys(keys)
+      super.merge!(value: value)
+    end
+
+    # Attach the list of comments to their respective locations in the tree.
+    def attach_comments!
+      Comments.new(self).attach! # steep:ignore
+    end
+
+    # Walk the tree and mark nodes that are on a new line, loosely emulating
+    # the behavior of CRuby's `:line` tracepoint event.
+    def mark_newlines!
+      value.accept(Newlines.new(source.offsets.size)) # steep:ignore
+    end
+  end
+
+  # This is a result specific to the `lex` and `lex_file` methods.
+  class LexResult < Result
+    # The list of tokens that were parsed from the source code.
+    attr_reader :value
+
+    # Create a new lex result object with the given values.
+    def initialize(value, comments, magic_comments, data_loc, errors, warnings, source)
+      @value = value
+      super(comments, magic_comments, data_loc, errors, warnings, source)
+    end
+
+    # Implement the hash pattern matching interface for LexResult.
+    def deconstruct_keys(keys)
+      super.merge!(value: value)
+    end
+  end
+
+  # This is a result specific to the `parse_lex` and `parse_lex_file` methods.
+  class ParseLexResult < Result
+    # A tuple of the syntax tree and the list of tokens that were parsed from
+    # the source code.
+    attr_reader :value
+
+    # Create a new parse lex result object with the given values.
+    def initialize(value, comments, magic_comments, data_loc, errors, warnings, source)
+      @value = value
+      super(comments, magic_comments, data_loc, errors, warnings, source)
+    end
+
+    # Implement the hash pattern matching interface for ParseLexResult.
+    def deconstruct_keys(keys)
+      super.merge!(value: value)
     end
   end
 
@@ -477,8 +668,9 @@ module Prism
 
     # A Location object representing the location of this token in the source.
     def location
-      return @location if @location.is_a?(Location)
-      @location = Location.new(source, @location >> 32, @location & 0xFFFFFFFF)
+      location = @location
+      return location if location.is_a?(Location)
+      @location = Location.new(source, location >> 32, location & 0xFFFFFFFF)
     end
 
     # Implement the pretty print interface for Token.
@@ -498,7 +690,7 @@ module Prism
 
     # Returns true if the given other token is equal to this token.
     def ==(other)
-      other.is_a?(Token) &&
+      Token === other &&
         other.type == type &&
         other.value == value
     end

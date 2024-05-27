@@ -177,11 +177,14 @@
         │   │   ├── flags: ∅
         │   │   └── arguments: (length: 3)
         │   │       ├── @ IntegerNode (location: (15,3)-(15,4))
-        │   │       │   └── flags: decimal
+        │   │       │   ├── flags: decimal
+        │   │       │   └── value: 1
         │   │       ├── @ IntegerNode (location: (15,6)-(15,7))
-        │   │       │   └── flags: decimal
+        │   │       │   ├── flags: decimal
+        │   │       │   └── value: 2
         │   │       └── @ IntegerNode (location: (15,9)-(15,10))
-        │   │           └── flags: decimal
+        │   │           ├── flags: decimal
+        │   │           └── value: 3
         │   ├── closing_loc: (15,10)-(15,11) = ")"
         │   └── block: ∅
         ├── @ CallNode (location: (17,0)-(17,4))
@@ -259,7 +262,8 @@
         │   │   ├── flags: ∅
         │   │   └── arguments: (length: 1)
         │   │       └── @ IntegerNode (location: (21,10)-(21,11))
-        │   │           └── flags: decimal
+        │   │           ├── flags: decimal
+        │   │           └── value: 1
         │   ├── closing_loc: ∅
         │   └── block: ∅
         ├── @ CallNode (location: (23,0)-(23,2))
@@ -304,7 +308,7 @@
         │   ├── opening_loc: (27,1)-(27,2) = "("
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (27,2)-(27,10))
-        │   │   ├── flags: contains_keyword_splat
+        │   │   ├── flags: contains_keywords, contains_keyword_splat
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (27,2)-(27,10))
         │   │           ├── flags: ∅
@@ -543,9 +547,11 @@
         │       ├── flags: ∅
         │       ├── elements: (length: 2)
         │       │   ├── @ IntegerNode (location: (41,19)-(41,20))
-        │       │   │   └── flags: decimal
+        │       │   │   ├── flags: decimal
+        │       │   │   └── value: 1
         │       │   └── @ IntegerNode (location: (41,22)-(41,23))
-        │       │       └── flags: decimal
+        │       │       ├── flags: decimal
+        │       │       └── value: 2
         │       ├── opening_loc: ∅
         │       └── closing_loc: ∅
         ├── @ CallNode (location: (43,0)-(43,4))
@@ -773,7 +779,7 @@
         │   ├── opening_loc: (60,3)-(60,4) = "("
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (60,4)-(60,32))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 2)
         │   │       ├── @ SymbolNode (location: (60,4)-(60,6))
         │   │       │   ├── flags: forced_us_ascii_encoding
@@ -850,7 +856,8 @@
         │   │   ├── flags: ∅
         │   │   └── arguments: (length: 2)
         │   │       ├── @ IntegerNode (location: (62,3)-(62,6))
-        │   │       │   └── flags: decimal
+        │   │       │   ├── flags: decimal
+        │   │       │   └── value: 123
         │   │       └── @ HashNode (location: (62,8)-(62,49))
         │   │           ├── opening_loc: (62,8)-(62,9) = "{"
         │   │           ├── elements: (length: 3)
@@ -905,7 +912,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (64,4)-(64,15))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 2)
         │   │       ├── @ SymbolNode (location: (64,4)-(64,6))
         │   │       │   ├── flags: forced_us_ascii_encoding
@@ -981,7 +988,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (66,3)-(66,17))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (66,3)-(66,17))
         │   │           ├── flags: symbol_keys
@@ -1013,7 +1020,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (68,3)-(68,40))
-        │   │   ├── flags: contains_keyword_splat
+        │   │   ├── flags: contains_keywords, contains_keyword_splat
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (68,3)-(68,40))
         │   │           ├── flags: ∅
@@ -1068,7 +1075,7 @@
         │   ├── opening_loc: (70,2)-(70,3) = "("
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (70,3)-(70,40))
-        │   │   ├── flags: contains_keyword_splat
+        │   │   ├── flags: contains_keywords, contains_keyword_splat
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (70,3)-(70,40))
         │   │           ├── flags: ∅
@@ -1171,7 +1178,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (74,3)-(74,20))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (74,3)-(74,20))
         │   │           ├── flags: symbol_keys
@@ -1228,7 +1235,7 @@
         │   ├── opening_loc: (80,3)-(80,4) = "("
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (81,0)-(82,5))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 2)
         │   │       ├── @ SymbolNode (location: (81,0)-(81,2))
         │   │       │   ├── flags: forced_us_ascii_encoding
@@ -1285,7 +1292,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (87,4)-(87,21))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (87,4)-(87,21))
         │   │           ├── flags: symbol_keys
@@ -1332,10 +1339,11 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (89,10)-(89,21))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 2)
         │   │       ├── @ IntegerNode (location: (89,10)-(89,11))
-        │   │       │   └── flags: decimal
+        │   │       │   ├── flags: decimal
+        │   │       │   └── value: 1
         │   │       └── @ KeywordHashNode (location: (89,13)-(89,21))
         │   │           ├── flags: symbol_keys
         │   │           └── elements: (length: 1)
@@ -1349,7 +1357,8 @@
         │   │                   │   └── unescaped: "kwarg"
         │   │                   ├── value:
         │   │                   │   @ IntegerNode (location: (89,20)-(89,21))
-        │   │                   │   └── flags: decimal
+        │   │                   │   ├── flags: decimal
+        │   │                   │   └── value: 2
         │   │                   └── operator_loc: ∅
         │   ├── closing_loc: ∅
         │   └── block: ∅
@@ -1367,7 +1376,8 @@
         │   │   ├── flags: ∅
         │   │   └── arguments: (length: 1)
         │   │       └── @ IntegerNode (location: (91,15)-(91,17))
-        │   │           └── flags: decimal
+        │   │           ├── flags: decimal
+        │   │           └── value: 10
         │   ├── closing_loc: (91,17)-(91,18) = ")"
         │   └── block: ∅
         ├── @ CallNode (location: (93,0)-(93,10))
@@ -1433,10 +1443,9 @@
         │   │   ├── parent:
         │   │   │   @ ConstantReadNode (location: (97,0)-(97,1))
         │   │   │   └── name: :A
-        │   │   ├── child:
-        │   │   │   @ ConstantReadNode (location: (97,3)-(97,4))
-        │   │   │   └── name: :B
-        │   │   └── delimiter_loc: (97,1)-(97,3) = "::"
+        │   │   ├── name: :B
+        │   │   ├── delimiter_loc: (97,1)-(97,3) = "::"
+        │   │   └── name_loc: (97,3)-(97,4) = "B"
         │   ├── call_operator_loc: (97,4)-(97,6) = "::"
         │   ├── name: :C
         │   ├── message_loc: (97,6)-(97,7) = "C"
@@ -1460,10 +1469,9 @@
         │   │   ├── parent:
         │   │   │   @ ConstantReadNode (location: (99,0)-(99,1))
         │   │   │   └── name: :A
-        │   │   ├── child:
-        │   │   │   @ ConstantReadNode (location: (99,3)-(99,4))
-        │   │   │   └── name: :B
-        │   │   └── delimiter_loc: (99,1)-(99,3) = "::"
+        │   │   ├── name: :B
+        │   │   ├── delimiter_loc: (99,1)-(99,3) = "::"
+        │   │   └── name_loc: (99,3)-(99,4) = "B"
         │   ├── call_operator_loc: (99,4)-(99,6) = "::"
         │   ├── name: :C
         │   ├── message_loc: (99,6)-(99,7) = "C"
@@ -1487,10 +1495,9 @@
         │   │   ├── parent:
         │   │   │   @ ConstantReadNode (location: (101,0)-(101,1))
         │   │   │   └── name: :A
-        │   │   ├── child:
-        │   │   │   @ ConstantReadNode (location: (101,3)-(101,4))
-        │   │   │   └── name: :B
-        │   │   └── delimiter_loc: (101,1)-(101,3) = "::"
+        │   │   ├── name: :B
+        │   │   ├── delimiter_loc: (101,1)-(101,3) = "::"
+        │   │   └── name_loc: (101,3)-(101,4) = "B"
         │   ├── call_operator_loc: (101,4)-(101,6) = "::"
         │   ├── name: :C
         │   ├── message_loc: (101,6)-(101,7) = "C"
@@ -1522,7 +1529,7 @@
         │   ├── opening_loc: (103,3)-(103,4) = "("
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (103,4)-(103,11))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (103,4)-(103,11))
         │   │           ├── flags: symbol_keys
@@ -1537,7 +1544,8 @@
         │   │                   │   └── unescaped: "a"
         │   │                   ├── value:
         │   │                   │   @ IntegerNode (location: (103,9)-(103,11))
-        │   │                   │   └── flags: decimal
+        │   │                   │   ├── flags: decimal
+        │   │                   │   └── value: -1
         │   │                   └── operator_loc: ∅
         │   ├── closing_loc: (103,11)-(103,12) = ")"
         │   └── block: ∅
@@ -1550,7 +1558,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (105,4)-(105,28))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (105,4)-(105,28))
         │   │           ├── flags: symbol_keys
@@ -1606,7 +1614,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (107,4)-(107,24))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (107,4)-(107,24))
         │   │           ├── flags: symbol_keys
@@ -1658,6 +1666,7 @@
         │   │   ├── flags: ∅
         │   │   └── arguments: (length: 1)
         │   │       └── @ InterpolatedStringNode (location: (109,4)-(109,29))
+        │   │           ├── flags: ∅
         │   │           ├── opening_loc: (109,4)-(109,5) = "\""
         │   │           ├── parts: (length: 1)
         │   │           │   └── @ EmbeddedStatementsNode (location: (109,5)-(109,28))
@@ -1845,7 +1854,8 @@
         │   │           │           ├── flags: ∅
         │   │           │           ├── receiver:
         │   │           │           │   @ IntegerNode (location: (117,8)-(117,9))
-        │   │           │           │   └── flags: decimal
+        │   │           │           │   ├── flags: decimal
+        │   │           │           │   └── value: 1
         │   │           │           ├── call_operator_loc: (117,9)-(117,10) = "."
         │   │           │           ├── name: :times
         │   │           │           ├── message_loc: (117,10)-(117,15) = "times"
@@ -1860,7 +1870,8 @@
         │   │           │               │   @ StatementsNode (location: (117,19)-(117,20))
         │   │           │               │   └── body: (length: 1)
         │   │           │               │       └── @ IntegerNode (location: (117,19)-(117,20))
-        │   │           │               │           └── flags: decimal
+        │   │           │               │           ├── flags: decimal
+        │   │           │               │           └── value: 1
         │   │           │               ├── opening_loc: (117,16)-(117,18) = "do"
         │   │           │               └── closing_loc: (117,21)-(117,24) = "end"
         │   │           ├── rescue_clause: ∅
@@ -2224,6 +2235,7 @@
         │   ├── closing_loc: ∅
         │   └── block: ∅
         ├── @ InterpolatedStringNode (location: (145,0)-(145,17))
+        │   ├── flags: ∅
         │   ├── opening_loc: (145,0)-(145,1) = "\""
         │   ├── parts: (length: 1)
         │   │   └── @ EmbeddedStatementsNode (location: (145,1)-(145,16))
@@ -2259,6 +2271,7 @@
         │   │       └── closing_loc: (145,15)-(145,16) = "}"
         │   └── closing_loc: (145,16)-(145,17) = "\""
         ├── @ InterpolatedStringNode (location: (147,0)-(147,8))
+        │   ├── flags: ∅
         │   ├── opening_loc: (147,0)-(147,1) = "\""
         │   ├── parts: (length: 1)
         │   │   └── @ EmbeddedStatementsNode (location: (147,1)-(147,7))
@@ -2340,7 +2353,8 @@
         │   │   ├── flags: ∅
         │   │   └── arguments: (length: 2)
         │   │       ├── @ IntegerNode (location: (151,4)-(151,5))
-        │   │       │   └── flags: decimal
+        │   │       │   ├── flags: decimal
+        │   │       │   └── value: 1
         │   │       └── @ CallNode (location: (151,7)-(151,16))
         │   │           ├── flags: ignore_visibility
         │   │           ├── receiver: ∅
@@ -2358,7 +2372,8 @@
         │   │               │   @ StatementsNode (location: (151,13)-(151,14))
         │   │               │   └── body: (length: 1)
         │   │               │       └── @ IntegerNode (location: (151,13)-(151,14))
-        │   │               │           └── flags: decimal
+        │   │               │           ├── flags: decimal
+        │   │               │           └── value: 1
         │   │               ├── opening_loc: (151,11)-(151,12) = "{"
         │   │               └── closing_loc: (151,15)-(151,16) = "}"
         │   ├── closing_loc: ∅
@@ -2369,7 +2384,8 @@
         │   ├── name_loc: (153,0)-(153,3) = "foo"
         │   ├── value:
         │   │   @ IntegerNode (location: (153,6)-(153,7))
-        │   │   └── flags: decimal
+        │   │   ├── flags: decimal
+        │   │   └── value: 1
         │   └── operator_loc: (153,4)-(153,5) = "="
         ├── @ CallNode (location: (154,0)-(154,6))
         │   ├── flags: ignore_visibility
@@ -2398,7 +2414,7 @@
             ├── opening_loc: ∅
             ├── arguments:
             │   @ ArgumentsNode (location: (156,5)-(156,19))
-            │   ├── flags: ∅
+            │   ├── flags: contains_keywords
             │   └── arguments: (length: 1)
             │       └── @ KeywordHashNode (location: (156,5)-(156,19))
             │           ├── flags: ∅
@@ -2409,7 +2425,7 @@
             │                   │   ├── opening_loc: (156,5)-(156,6) = "\""
             │                   │   ├── parts: (length: 2)
             │                   │   │   ├── @ StringNode (location: (156,6)-(156,7))
-            │                   │   │   │   ├── flags: ∅
+            │                   │   │   │   ├── flags: frozen
             │                   │   │   │   ├── opening_loc: ∅
             │                   │   │   │   ├── content_loc: (156,6)-(156,7) = "c"
             │                   │   │   │   ├── closing_loc: ∅
@@ -2433,7 +2449,8 @@
             │                   │   └── closing_loc: (156,14)-(156,16) = "\":"
             │                   ├── value:
             │                   │   @ IntegerNode (location: (156,17)-(156,19))
-            │                   │   └── flags: decimal
+            │                   │   ├── flags: decimal
+            │                   │   └── value: 42
             │                   └── operator_loc: ∅
             ├── closing_loc: ∅
             └── block: ∅

@@ -10,6 +10,8 @@
 #define PRISM_DEFINES_H
 
 #include <ctype.h>
+#include <limits.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -21,7 +23,6 @@
  * some platforms they aren't included unless this is already defined.
  */
 #define __STDC_FORMAT_MACROS
-
 #include <inttypes.h>
 
 /**
@@ -48,7 +49,11 @@
  * compiler-agnostic way.
  */
 #if defined(__GNUC__)
-#   define PRISM_ATTRIBUTE_FORMAT(string_index, argument_index) __attribute__((format(printf, string_index, argument_index)))
+#   if defined(__MINGW_PRINTF_FORMAT)
+#       define PRISM_ATTRIBUTE_FORMAT(string_index, argument_index) __attribute__((format(__MINGW_PRINTF_FORMAT, string_index, argument_index)))
+#   else
+#       define PRISM_ATTRIBUTE_FORMAT(string_index, argument_index) __attribute__((format(printf, string_index, argument_index)))
+#   endif
 #elif defined(__clang__)
 #   define PRISM_ATTRIBUTE_FORMAT(string_index, argument_index) __attribute__((__format__(__printf__, string_index, argument_index)))
 #else
@@ -97,6 +102,105 @@
 #   define PM_STATIC_ASSERT(line, condition, message) _Static_assert(condition, message)
 #else
 #   define PM_STATIC_ASSERT(line, condition, message) typedef char PM_CONCATENATE(static_assert_, line)[(condition) ? 1 : -1]
+#endif
+
+/**
+ * In general, libc for embedded systems does not support memory-mapped files.
+ * If the target platform is POSIX or Windows, we can map a file in memory and
+ * read it in a more efficient manner.
+ */
+#ifdef _WIN32
+#   define PRISM_HAS_MMAP
+#else
+#   include <unistd.h>
+#   ifdef _POSIX_MAPPED_FILES
+#       define PRISM_HAS_MMAP
+#   endif
+#endif
+
+/**
+ * isinf on Windows is defined as accepting a float, but on POSIX systems it
+ * accepts a float, a double, or a long double. We want to mirror this behavior
+ * on windows.
+ */
+#ifdef _WIN32
+#   include <float.h>
+#   undef isinf
+#   define isinf(x) (sizeof(x) == sizeof(float) ? !_finitef(x) : !_finite(x))
+#endif
+
+/**
+ * If you build prism with a custom allocator, configure it with
+ * "-D PRISM_XALLOCATOR" to use your own allocator that defines xmalloc,
+ * xrealloc, xcalloc, and xfree.
+ *
+ * For example, your `prism_xallocator.h` file could look like this:
+ *
+ * ```
+ * #ifndef PRISM_XALLOCATOR_H
+ * #define PRISM_XALLOCATOR_H
+ * #define xmalloc      my_malloc
+ * #define xrealloc     my_realloc
+ * #define xcalloc      my_calloc
+ * #define xfree        my_free
+ * #endif
+ * ```
+ */
+#ifdef PRISM_XALLOCATOR
+    #include "prism_xallocator.h"
+#else
+    #ifndef xmalloc
+        /**
+         * The malloc function that should be used. This can be overridden with
+         * the PRISM_XALLOCATOR define.
+         */
+        #define xmalloc malloc
+    #endif
+
+    #ifndef xrealloc
+        /**
+         * The realloc function that should be used. This can be overridden with
+         * the PRISM_XALLOCATOR define.
+         */
+        #define xrealloc realloc
+    #endif
+
+    #ifndef xcalloc
+        /**
+         * The calloc function that should be used. This can be overridden with
+         * the PRISM_XALLOCATOR define.
+         */
+        #define xcalloc calloc
+    #endif
+
+    #ifndef xfree
+        /**
+         * The free function that should be used. This can be overridden with the
+         * PRISM_XALLOCATOR define.
+         */
+        #define xfree free
+    #endif
+#endif
+
+/**
+ * If PRISM_BUILD_MINIMAL is defined, then we're going to define every possible
+ * switch that will turn off certain features of prism.
+ */
+#ifdef PRISM_BUILD_MINIMAL
+    /** Exclude the serialization API. */
+    #define PRISM_EXCLUDE_SERIALIZATION
+
+    /** Exclude the JSON serialization API. */
+    #define PRISM_EXCLUDE_JSON
+
+    /** Exclude the Array#pack parser API. */
+    #define PRISM_EXCLUDE_PACK
+
+    /** Exclude the prettyprint API. */
+    #define PRISM_EXCLUDE_PRETTYPRINT
+
+    /** Exclude the full set of encodings, using the minimal only. */
+    #define PRISM_ENCODING_EXCLUDE_FULL
 #endif
 
 #endif

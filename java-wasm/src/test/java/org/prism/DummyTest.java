@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.EnumSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,7 +33,16 @@ public class DummyTest {
         var sourcePointer = calloc.apply(Value.i32(1), Value.i32(source.length()));
         memory.writeString(sourcePointer[0].asInt(), source);
 
-        var packedOptions = new byte[] {};
+        var packedOptions = ParsingOptions.serialize(
+            new byte[] {},
+            1,
+            new byte[] {},
+            false,
+            EnumSet.noneOf(ParsingOptions.CommandLine.class),
+            ParsingOptions.SyntaxVersion.LATEST,
+            new byte[][][] {}
+        );
+
         var optionsPointer = calloc.apply(Value.i32(1), Value.i32(packedOptions.length));
         memory.write(optionsPointer[0].asInt(), packedOptions);
 
@@ -74,7 +84,16 @@ public class DummyTest {
         var sourcePointer = calloc.apply(Value.i32(1), Value.i32(source.length()));
         memory.writeString(sourcePointer[0].asInt(), source);
 
-        var packedOptions = new byte[] {};
+        var packedOptions = ParsingOptions.serialize(
+            new byte[] {},
+            1,
+            new byte[] {},
+            false,
+            EnumSet.noneOf(ParsingOptions.CommandLine.class),
+            ParsingOptions.SyntaxVersion.LATEST,
+            new byte[][][] {}
+        );
+
         var optionsPointer = calloc.apply(Value.i32(1), Value.i32(packedOptions.length));
         memory.write(optionsPointer[0].asInt(), packedOptions);
 

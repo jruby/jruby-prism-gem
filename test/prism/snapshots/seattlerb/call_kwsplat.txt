@@ -12,7 +12,7 @@
             ├── opening_loc: (1,1)-(1,2) = "("
             ├── arguments:
             │   @ ArgumentsNode (location: (1,2)-(1,5))
-            │   ├── flags: contains_keyword_splat
+            │   ├── flags: contains_keywords, contains_keyword_splat
             │   └── arguments: (length: 1)
             │       └── @ KeywordHashNode (location: (1,2)-(1,5))
             │           ├── flags: ∅
@@ -20,7 +20,8 @@
             │               └── @ AssocSplatNode (location: (1,2)-(1,5))
             │                   ├── value:
             │                   │   @ IntegerNode (location: (1,4)-(1,5))
-            │                   │   └── flags: decimal
+            │                   │   ├── flags: decimal
+            │                   │   └── value: 1
             │                   └── operator_loc: (1,2)-(1,4) = "**"
             ├── closing_loc: (1,5)-(1,6) = ")"
             └── block: ∅

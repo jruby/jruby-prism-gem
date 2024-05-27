@@ -20,13 +20,15 @@
             │           │   @ StatementsNode (location: (3,10)-(3,19))
             │           │   └── body: (length: 1)
             │           │       └── @ ReturnNode (location: (3,10)-(3,19))
+            │           │           ├── flags: redundant
             │           │           ├── keyword_loc: (3,10)-(3,16) = "return"
             │           │           └── arguments:
             │           │               @ ArgumentsNode (location: (3,17)-(3,19))
             │           │               ├── flags: ∅
             │           │               └── arguments: (length: 1)
             │           │                   └── @ IntegerNode (location: (3,17)-(3,19))
-            │           │                       └── flags: decimal
+            │           │                       ├── flags: decimal
+            │           │                       └── value: 42
             │           ├── consequent: ∅
             │           └── end_keyword_loc: (4,8)-(4,11) = "end"
             ├── locals: []

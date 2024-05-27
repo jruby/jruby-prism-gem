@@ -28,6 +28,12 @@ task :lint do
     exit(1)
   end
 
+  if (operators = nodes.select { |node| node.fetch("fields", []).any? { |field| field["name"] == "operator" } }).any?
+    names = operators.map { |node| node.fetch("name") }
+    warn("Nodes cannot have fields named 'operator' because it is a C++ reserved keyword, found in #{names.join(", ")}")
+    exit(1)
+  end
+
   if (uncommented = nodes.select { |node| !node.key?("comment") }).any?
     names = uncommented.map { |node| node.fetch("name") }
     warn("Expected all nodes to be commented, missing comments for #{names.join(", ")}")
@@ -48,12 +54,12 @@ task :lint do
 
     File.foreach(filepath).with_index(1) do |line, index|
       if line.match?(/[ \t]+$/)
-        warn("Trailing spaces found in #{filepath} on line #{index}")
+        warn("Trailing spaces found in #{filepath}:#{index}")
         failed = true
       end
 
       if line.match?(/^\t/)
-        warn("Tabs found in #{filepath} on line #{index}")
+        warn("Tabs found in #{filepath}:#{index}")
         failed = true
       end
     end

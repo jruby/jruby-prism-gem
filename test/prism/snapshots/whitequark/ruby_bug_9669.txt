@@ -24,6 +24,7 @@
         │   │   @ StatementsNode (location: (2,0)-(2,6))
         │   │   └── body: (length: 1)
         │   │       └── @ ReturnNode (location: (2,0)-(2,6))
+        │   │           ├── flags: redundant
         │   │           ├── keyword_loc: (2,0)-(2,6) = "return"
         │   │           └── arguments: ∅
         │   ├── locals: [:b]
@@ -51,7 +52,8 @@
             │   │       │   └── unescaped: "a"
             │   │       ├── value:
             │   │       │   @ IntegerNode (location: (7,0)-(7,1))
-            │   │       │   └── flags: decimal
+            │   │       │   ├── flags: decimal
+            │   │       │   └── value: 1
             │   │       └── operator_loc: ∅
             │   └── closing_loc: (8,0)-(8,1) = "}"
             └── operator_loc: (5,2)-(5,3) = "="

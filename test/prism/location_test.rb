@@ -98,10 +98,10 @@ module Prism
     end
 
     def test_BreakNode
-      assert_location(BreakNode, "break")
-      assert_location(BreakNode, "break foo")
-      assert_location(BreakNode, "break foo, bar")
-      assert_location(BreakNode, "break(foo)")
+      assert_location(BreakNode, "tap { break }", 6...11) { |node| node.block.body.body.first }
+      assert_location(BreakNode, "tap { break foo }", 6...15) { |node| node.block.body.body.first }
+      assert_location(BreakNode, "tap { break foo, bar }", 6...20) { |node| node.block.body.body.first }
+      assert_location(BreakNode, "tap { break(foo) }", 6...16) { |node| node.block.body.body.first }
     end
 
     def test_CallNode
@@ -175,14 +175,6 @@ module Prism
 
       assert_location(CallNode, "foo bar baz")
       assert_location(CallNode, "foo bar('baz')")
-
-      assert_location(CallNode, "-> { it }", 5...7, version: "3.3.0") do |node|
-        node.body.body.first
-      end
-
-      assert_location(LocalVariableReadNode, "-> { it }", 5...7, version: "3.4.0") do |node|
-        node.body.body.first
-      end
     end
 
     def test_CallAndWriteNode
@@ -298,7 +290,6 @@ module Prism
 
     def test_ConstantReadNode
       assert_location(ConstantReadNode, "Foo")
-      assert_location(ConstantReadNode, "Foo::Bar", 5...8, &:child)
     end
 
     def test_ConstantTargetNode
@@ -478,7 +469,7 @@ module Prism
     end
 
     def test_IndexTargetNode
-      assert_location(IndexTargetNode, "foo[bar, &baz], = qux", 0...14) do |node|
+      assert_location(IndexTargetNode, "foo[bar], = qux", 0...8) do |node|
         node.lefts.first
       end
     end
@@ -527,6 +518,7 @@ module Prism
 
     def test_InterpolatedRegularExpressionNode
       assert_location(InterpolatedRegularExpressionNode, "/\#{foo}/")
+      assert_location(InterpolatedRegularExpressionNode, "/\#{foo}/io")
     end
 
     def test_InterpolatedStringNode
@@ -541,6 +533,28 @@ module Prism
 
     def test_InterpolatedXStringNode
       assert_location(InterpolatedXStringNode, '`foo #{bar} baz`')
+    end
+
+    def test_ItLocalVariableReadNode
+      assert_location(ItLocalVariableReadNode, "-> { it }", 5...7) do |node|
+        node.body.body.first
+      end
+
+      assert_location(ItLocalVariableReadNode, "foo { it }", 6...8) do |node|
+        node.block.body.body.first
+      end
+
+      assert_location(CallNode, "-> { it }", 5...7, version: "3.3.0") do |node|
+        node.body.body.first
+      end
+
+      assert_location(ItLocalVariableReadNode, "-> { it }", 5...7, version: "3.4.0") do |node|
+        node.body.body.first
+      end
+    end
+
+    def test_ItParametersNode
+      assert_location(ItParametersNode, "-> { it }", &:parameters)
     end
 
     def test_KeywordHashNode
@@ -579,12 +593,6 @@ module Prism
 
     def test_LocalVariableReadNode
       assert_location(LocalVariableReadNode, "foo = 1; foo", 9...12)
-      assert_location(LocalVariableReadNode, "-> { it }", 5...7) do |node|
-        node.body.body.first
-      end
-      assert_location(LocalVariableReadNode, "foo { it }", 6...8) do |node|
-        node.block.body.body.first
-      end
     end
 
     def test_LocalVariableTargetNode
@@ -632,10 +640,10 @@ module Prism
     end
 
     def test_NextNode
-      assert_location(NextNode, "next")
-      assert_location(NextNode, "next foo")
-      assert_location(NextNode, "next foo, bar")
-      assert_location(NextNode, "next(foo)")
+      assert_location(NextNode, "tap { next }", 6...10) { |node| node.block.body.body.first }
+      assert_location(NextNode, "tap { next foo }", 6...14) { |node| node.block.body.body.first }
+      assert_location(NextNode, "tap { next foo, bar }", 6...19) { |node| node.block.body.body.first }
+      assert_location(NextNode, "tap { next(foo) }", 6...15) { |node| node.block.body.body.first }
     end
 
     def test_NilNode
@@ -721,11 +729,12 @@ module Prism
     end
 
     def test_RedoNode
-      assert_location(RedoNode, "redo")
+      assert_location(RedoNode, "tap { redo }", 6...10) { |node| node.block.body.body.first }
     end
 
     def test_RegularExpressionNode
       assert_location(RegularExpressionNode, "/foo/")
+      assert_location(RegularExpressionNode, "/foo/io")
     end
 
     def test_RequiredKeywordParameterNode
@@ -763,7 +772,7 @@ module Prism
     end
 
     def test_RetryNode
-      assert_location(RetryNode, "retry")
+      assert_location(RetryNode, "begin; rescue; retry; end", 15...20) { |node| node.rescue_clause.statements.body.first }
     end
 
     def test_ReturnNode
@@ -775,6 +784,15 @@ module Prism
 
     def test_SelfNode
       assert_location(SelfNode, "self")
+    end
+
+    def test_ShareableConstantNode
+      source = <<~RUBY
+        # shareable_constant_value: literal
+        C = { foo: 1 }
+      RUBY
+
+      assert_location(ShareableConstantNode, source, 36...50)
     end
 
     def test_SingletonClassNode
@@ -895,10 +913,10 @@ module Prism
     end
 
     def test_YieldNode
-      assert_location(YieldNode, "yield")
-      assert_location(YieldNode, "yield foo")
-      assert_location(YieldNode, "yield foo, bar")
-      assert_location(YieldNode, "yield(foo)")
+      assert_location(YieldNode, "def test; yield; end", 10...15) { |node| node.body.body.first }
+      assert_location(YieldNode, "def test; yield foo; end", 10...19) { |node| node.body.body.first }
+      assert_location(YieldNode, "def test; yield foo, bar; end", 10...24) { |node| node.body.body.first }
+      assert_location(YieldNode, "def test; yield(foo); end", 10...20) { |node| node.body.body.first }
     end
 
     def test_all_tested
@@ -911,8 +929,7 @@ module Prism
 
     def assert_location(kind, source, expected = 0...source.length, **options)
       result = Prism.parse(source, **options)
-      assert_equal [], result.comments
-      assert_equal [], result.errors
+      assert result.success?
 
       node = result.value.statements.body.last
       node = yield node if block_given?

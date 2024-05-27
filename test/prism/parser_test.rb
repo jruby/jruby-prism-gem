@@ -4,7 +4,8 @@ require_relative "test_helper"
 
 begin
   verbose, $VERBOSE = $VERBOSE, nil
-  require "parser/current"
+  require "parser/ruby33"
+  require "prism/translation/parser33"
 rescue LoadError
   # In CRuby's CI, we're not going to test against the parser gem because we
   # don't want to have to install it. So in this case we'll just skip this test.
@@ -43,20 +44,22 @@ module Prism
   class ParserTest < TestCase
     base = File.join(__dir__, "fixtures")
 
+    # These files are erroring because of the parser gem being wrong.
+    skip_incorrect = [
+      "embdoc_no_newline_at_end.txt"
+    ]
+
     # These files are either failing to parse or failing to translate, so we'll
     # skip them for now.
-    skip_all = %w[
-      arrays.txt
-      constants.txt
-      dash_heredocs.txt
-      dos_endings.txt
-      embdoc_no_newline_at_end.txt
-      heredocs_with_ignored_newlines.txt
-      regex.txt
-      spanning_heredoc.txt
-      spanning_heredoc_newlines.txt
-      tilde_heredocs.txt
-      unescaping.txt
+    skip_all = skip_incorrect | [
+      "dash_heredocs.txt",
+      "dos_endings.txt",
+      "heredocs_with_ignored_newlines.txt",
+      "regex.txt",
+      "regex_char_width.txt",
+      "spanning_heredoc.txt",
+      "spanning_heredoc_newlines.txt",
+      "unescaping.txt"
     ]
 
     # Not sure why these files are failing on JRuby, but skipping them for now.
@@ -66,20 +69,14 @@ module Prism
 
     # These files are failing to translate their lexer output into the lexer
     # output expected by the parser gem, so we'll skip them for now.
-    skip_tokens = %w[
-      comments.txt
-      endless_range_in_conditional.txt
-      heredoc_with_comment.txt
-      heredoc_with_escaped_newline_at_start.txt
-      heredocs_leading_whitespace.txt
-      heredocs_nested.txt
-      heredocs_with_ignored_newlines_and_non_empty.txt
-      indented_file_end.txt
-      non_alphanumeric_methods.txt
-      range_begin_open_inclusive.txt
-      single_quote_heredocs.txt
-      strings.txt
-      xstring.txt
+    skip_tokens = [
+      "comments.txt",
+      "heredoc_with_comment.txt",
+      "indented_file_end.txt",
+      "methods.txt",
+      "strings.txt",
+      "tilde_heredocs.txt",
+      "xstring_with_backslash.txt"
     ]
 
     Dir["*.txt", base: base].each do |name|
@@ -96,7 +93,7 @@ module Prism
       buffer = Parser::Source::Buffer.new(filepath, 1)
       buffer.source = File.read(filepath)
 
-      parser = Parser::CurrentRuby.default_parser
+      parser = Parser::Ruby33.new
       parser.diagnostics.consumer = ->(*) {}
       parser.diagnostics.all_errors_are_fatal = true
 
@@ -108,7 +105,7 @@ module Prism
         end
 
       actual_ast, actual_comments, actual_tokens =
-        Prism::Translation::Parser.new.tokenize(buffer)
+        Prism::Translation::Parser33.new.tokenize(buffer)
 
       assert_equal expected_ast, actual_ast, -> { assert_equal_asts_message(expected_ast, actual_ast) }
       assert_equal_tokens(expected_tokens, actual_tokens) if compare_tokens
@@ -124,7 +121,7 @@ module Prism
         end
 
         if left.location != right.location
-          return "expected:\n#{left.inspect}\n#{left.location}\nactual:\n#{right.inspect}\n#{right.location}"
+          return "expected:\n#{left.inspect}\n#{left.location.inspect}\nactual:\n#{right.inspect}\n#{right.location.inspect}"
         end
 
         if left.type == :str && left.children[0] != right.children[0]
@@ -166,8 +163,6 @@ module Prism
             actual_token[0] = expected_token[0] if %i[kDO_BLOCK kDO_LAMBDA].include?(expected_token[0])
           when :tLPAREN
             actual_token[0] = expected_token[0] if expected_token[0] == :tLPAREN2
-          when :tLCURLY
-            actual_token[0] = expected_token[0] if %i[tLBRACE tLBRACE_ARG].include?(expected_token[0])
           when :tPOW
             actual_token[0] = expected_token[0] if expected_token[0] == :tDSTAR
           end

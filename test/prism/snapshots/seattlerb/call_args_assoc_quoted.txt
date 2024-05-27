@@ -12,7 +12,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (1,2)-(1,11))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (1,2)-(1,11))
         │   │           ├── flags: ∅
@@ -41,7 +41,8 @@
         │   │                   │   └── closing_loc: (1,7)-(1,9) = "\":"
         │   │                   ├── value:
         │   │                   │   @ IntegerNode (location: (1,9)-(1,11))
-        │   │                   │   └── flags: decimal
+        │   │                   │   ├── flags: decimal
+        │   │                   │   └── value: 42
         │   │                   └── operator_loc: ∅
         │   ├── closing_loc: ∅
         │   └── block: ∅
@@ -54,7 +55,7 @@
         │   ├── opening_loc: ∅
         │   ├── arguments:
         │   │   @ ArgumentsNode (location: (3,2)-(3,8))
-        │   │   ├── flags: ∅
+        │   │   ├── flags: contains_keywords
         │   │   └── arguments: (length: 1)
         │   │       └── @ KeywordHashNode (location: (3,2)-(3,8))
         │   │           ├── flags: symbol_keys
@@ -69,7 +70,8 @@
         │   │                   │   └── unescaped: "k"
         │   │                   ├── value:
         │   │                   │   @ IntegerNode (location: (3,6)-(3,8))
-        │   │                   │   └── flags: decimal
+        │   │                   │   ├── flags: decimal
+        │   │                   │   └── value: 42
         │   │                   └── operator_loc: ∅
         │   ├── closing_loc: ∅
         │   └── block: ∅
@@ -82,7 +84,7 @@
             ├── opening_loc: ∅
             ├── arguments:
             │   @ ArgumentsNode (location: (5,2)-(5,8))
-            │   ├── flags: ∅
+            │   ├── flags: contains_keywords
             │   └── arguments: (length: 1)
             │       └── @ KeywordHashNode (location: (5,2)-(5,8))
             │           ├── flags: symbol_keys
@@ -97,7 +99,8 @@
             │                   │   └── unescaped: "k"
             │                   ├── value:
             │                   │   @ IntegerNode (location: (5,6)-(5,8))
-            │                   │   └── flags: decimal
+            │                   │   ├── flags: decimal
+            │                   │   └── value: 42
             │                   └── operator_loc: ∅
             ├── closing_loc: ∅
             └── block: ∅

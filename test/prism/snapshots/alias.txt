@@ -57,7 +57,7 @@
         │   │   ├── opening_loc: (7,6)-(7,8) = ":\""
         │   │   ├── parts: (length: 2)
         │   │   │   ├── @ StringNode (location: (7,8)-(7,11))
-        │   │   │   │   ├── flags: ∅
+        │   │   │   │   ├── flags: frozen
         │   │   │   │   ├── opening_loc: ∅
         │   │   │   │   ├── content_loc: (7,8)-(7,11) = "abc"
         │   │   │   │   ├── closing_loc: ∅
@@ -68,7 +68,8 @@
         │   │   │       │   @ StatementsNode (location: (7,13)-(7,14))
         │   │   │       │   └── body: (length: 1)
         │   │   │       │       └── @ IntegerNode (location: (7,13)-(7,14))
-        │   │   │       │           └── flags: decimal
+        │   │   │       │           ├── flags: decimal
+        │   │   │       │           └── value: 1
         │   │   │       └── closing_loc: (7,14)-(7,15) = "}"
         │   │   └── closing_loc: (7,15)-(7,16) = "\""
         │   ├── old_name:

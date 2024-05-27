@@ -30,7 +30,7 @@ jobs:
     - name: Set up Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: "2.5"
+        ruby-version: "2.7.0"
     - name: Install necessary gems
       run: gem install rake rake-compiler
     - name: Generate templates
@@ -38,8 +38,10 @@ jobs:
       env:
         LANG: "C"
 
-  check_annotations:
+  typecheck:
     runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: gemfiles/typecheck/Gemfile
     steps:
     - uses: actions/checkout@v4
     - name: Set up Ruby
@@ -47,10 +49,12 @@ jobs:
       with:
         ruby-version: "3.3"
         bundler-cache: true
-    - name: Check annotations
-      run: |
-        bundle exec rake compile
-        bundle exec rake check_annotations
+    # - name: Check Sorbet
+    #   run: bundle exec rake typecheck:tapioca typecheck:sorbet
+    - name: Check Steep
+      run: bundle exec rake typecheck:steep
+    - name: Check field kinds
+      run: rm lib/prism/node.rb && CHECK_FIELD_KIND=true bundle exec rake
 
   build:
     strategy:
@@ -68,6 +72,8 @@ jobs:
     - name: Run Ruby tests
       run: bundle exec rake
       shell: bash
+      env:
+        TESTOPTS: "-v"
 
   build-ffi:
     strategy:
@@ -91,7 +97,23 @@ jobs:
       - name: Run Ruby tests
         run: bundle exec rake
 
-  build-debug-mode:
+  build-without-assertions:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: head
+        bundler-cache: true
+    - name: Run Ruby tests
+      run: bundle exec rake compile_no_debug test
+
+  build-debug:
     strategy:
       fail-fast: false
       matrix:
@@ -107,14 +129,10 @@ jobs:
     - name: Run Ruby tests
       run: bundle exec rake
       env:
-        PRISM_DEBUG_MODE_BUILD: "1"
+        PRISM_BUILD_DEBUG: "1"
 
-  build-without-assertions:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
-    runs-on: ${{ matrix.os }}
+  build-minimal:
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Set up Ruby
@@ -123,7 +141,9 @@ jobs:
         ruby-version: head
         bundler-cache: true
     - name: Run Ruby tests
-      run: bundle exec rake compile_no_debug
+      run: bundle exec rake compile_minimal test
+      env:
+        PRISM_BUILD_MINIMAL: "1"
 
   build-java:
     runs-on: ubuntu-latest
@@ -195,16 +215,16 @@ jobs:
       uses: actions/cache@v4
       id: cache-valgrind
       with:
-        path: valgrind-3.20.0
-        key: ${{ runner.os }}-valgrind-3.20.0
+        path: valgrind-3.23.0
+        key: ${{ runner.os }}-valgrind-3.23.0
     - name: Download valgrind
       if: steps.cache-valgrind.outputs.cache-hit != 'true'
       run: |
-        wget https://sourceware.org/pub/valgrind/valgrind-3.20.0.tar.bz2
-        tar xf valgrind-3.20.0.tar.bz2
+        wget https://sourceware.org/pub/valgrind/valgrind-3.23.0.tar.bz2
+        tar xf valgrind-3.23.0.tar.bz2
     - name: Install valgrind
       run: |
-        cd valgrind-3.20.0
+        cd valgrind-3.23.0
         ./configure
         make
         sudo make install
@@ -313,23 +333,3 @@ jobs:
       run: |
         scan-build bundle exec rake compile 2>&1 | tee /tmp/scan_build_output.log
         grep -q 'scan-build: No bugs found.' /tmp/scan_build_output.log
-
-  documentation:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: "3.2"
-        bundler-cache: true
-    - name: Install doxygen and dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install doxygen graphviz
-    - name: Generate the templates
-      run: bundle exec rake templates
-    - name: Check ruby coverage
-      run: bundle exec rake rdoc:coverage
-    - name: Check C coverage
-      run: doxygen Doxyfile

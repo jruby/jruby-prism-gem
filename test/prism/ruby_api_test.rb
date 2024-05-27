@@ -4,20 +4,22 @@ require_relative "test_helper"
 
 module Prism
   class RubyAPITest < TestCase
-    def test_ruby_api
-      filepath = __FILE__
-      source = File.read(filepath, binmode: true, external_encoding: Encoding::UTF_8)
+    if !ENV["PRISM_BUILD_MINIMAL"]
+      def test_ruby_api
+        filepath = __FILE__
+        source = File.read(filepath, binmode: true, external_encoding: Encoding::UTF_8)
 
-      assert_equal Prism.lex(source, filepath: filepath).value, Prism.lex_file(filepath).value
-      assert_equal Prism.dump(source, filepath: filepath), Prism.dump_file(filepath)
+        assert_equal Prism.lex(source, filepath: filepath).value, Prism.lex_file(filepath).value
+        assert_equal Prism.dump(source, filepath: filepath), Prism.dump_file(filepath)
 
-      serialized = Prism.dump(source, filepath: filepath)
-      ast1 = Prism.load(source, serialized).value
-      ast2 = Prism.parse(source, filepath: filepath).value
-      ast3 = Prism.parse_file(filepath).value
+        serialized = Prism.dump(source, filepath: filepath)
+        ast1 = Prism.load(source, serialized).value
+        ast2 = Prism.parse(source, filepath: filepath).value
+        ast3 = Prism.parse_file(filepath).value
 
-      assert_equal_nodes ast1, ast2
-      assert_equal_nodes ast2, ast3
+        assert_equal_nodes ast1, ast2
+        assert_equal_nodes ast2, ast3
+      end
     end
 
     def test_parse_success?
@@ -196,6 +198,24 @@ module Prism
       assert_equal 7, location.end_code_units_column(Encoding::UTF_32LE)
     end
 
+    def test_location_chop
+      location = Prism.parse("foo").value.location
+
+      assert_equal "fo", location.chop.slice
+      assert_equal "", location.chop.chop.chop.slice
+
+      # Check that we don't go negative.
+      10.times { location = location.chop }
+      assert_equal "", location.slice
+    end
+
+    def test_location_slice_lines
+      result = Prism.parse("\nprivate def foo\nend\n")
+      method = result.value.statements.body.first.arguments.arguments.first
+
+      assert_equal "private def foo\nend\n", method.slice_lines
+    end
+
     def test_heredoc?
       refute parse_expression("\"foo\"").heredoc?
       refute parse_expression("\"foo \#{1}\"").heredoc?
@@ -229,6 +249,53 @@ module Prism
       assert_equal 8, base[parse_expression("0o1")]
       assert_equal 10, base[parse_expression("0d1")]
       assert_equal 16, base[parse_expression("0x1")]
+    end
+
+    def test_node_equality
+      assert_operator parse_expression("1"), :===, parse_expression("1")
+      assert_operator Prism.parse("1").value, :===, Prism.parse("1").value
+
+      complex_source = "class Something; @var = something.else { _1 }; end"
+      assert_operator parse_expression(complex_source), :===, parse_expression(complex_source)
+
+      refute_operator parse_expression("1"), :===, parse_expression("2")
+      refute_operator parse_expression("1"), :===, parse_expression("0x1")
+
+      complex_source_1 = "class Something; @var = something.else { _1 }; end"
+      complex_source_2 = "class Something; @var = something.else { _2 }; end"
+      refute_operator parse_expression(complex_source_1), :===, parse_expression(complex_source_2)
+    end
+
+    def test_node_tunnel
+      program = Prism.parse("foo(1) +\n  bar(2, 3) +\n  baz(3, 4, 5)").value
+
+      tunnel = program.tunnel(1, 4).last
+      assert_kind_of IntegerNode, tunnel
+      assert_equal 1, tunnel.value
+
+      tunnel = program.tunnel(2, 6).last
+      assert_kind_of IntegerNode, tunnel
+      assert_equal 2, tunnel.value
+
+      tunnel = program.tunnel(3, 9).last
+      assert_kind_of IntegerNode, tunnel
+      assert_equal 4, tunnel.value
+
+      tunnel = program.tunnel(3, 8)
+      assert_equal [ProgramNode, StatementsNode, CallNode, ArgumentsNode, CallNode, ArgumentsNode], tunnel.map(&:class)
+    end
+
+    def test_location_adjoin
+      program = Prism.parse("foo.bar = 1").value
+
+      location = program.statements.body.first.message_loc
+      adjoined = location.adjoin("=")
+
+      assert_kind_of Location, adjoined
+      refute_equal location, adjoined
+
+      assert_equal 4, adjoined.start_offset
+      assert_equal 9, adjoined.end_offset
     end
 
     private

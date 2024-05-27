@@ -21,7 +21,7 @@
             │       ├── opening_loc: (1,17)-(1,19) = ":\""
             │       ├── parts: (length: 2)
             │       │   ├── @ StringNode (location: (1,19)-(1,22))
-            │       │   │   ├── flags: ∅
+            │       │   │   ├── flags: frozen
             │       │   │   ├── opening_loc: ∅
             │       │   │   ├── content_loc: (1,19)-(1,22) = "foo"
             │       │   │   ├── closing_loc: ∅
@@ -32,7 +32,8 @@
             │       │       │   @ StatementsNode (location: (1,24)-(1,25))
             │       │       │   └── body: (length: 1)
             │       │       │       └── @ IntegerNode (location: (1,24)-(1,25))
-            │       │       │           └── flags: decimal
+            │       │       │           ├── flags: decimal
+            │       │       │           └── value: 1
             │       │       └── closing_loc: (1,25)-(1,26) = "}"
             │       └── closing_loc: (1,26)-(1,27) = "\""
             └── keyword_loc: (1,0)-(1,5) = "undef"

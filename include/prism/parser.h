@@ -6,14 +6,14 @@
 #ifndef PRISM_PARSER_H
 #define PRISM_PARSER_H
 
-#include "prism/ast.h"
 #include "prism/defines.h"
+#include "prism/ast.h"
 #include "prism/encoding.h"
 #include "prism/options.h"
+#include "prism/static_literals.h"
 #include "prism/util/pm_constant_pool.h"
 #include "prism/util/pm_list.h"
 #include "prism/util/pm_newline_list.h"
-#include "prism/util/pm_state_stack.h"
 #include "prism/util/pm_string.h"
 
 #include <stdbool.h>
@@ -173,7 +173,7 @@ typedef struct pm_lex_mode {
              * This is the character set that should be used to delimit the
              * tokens within the regular expression.
              */
-            uint8_t breakpoints[6];
+            uint8_t breakpoints[7];
         } regexp;
 
         struct {
@@ -206,7 +206,7 @@ typedef struct pm_lex_mode {
              * This is the character set that should be used to delimit the
              * tokens within the string.
              */
-            uint8_t breakpoints[6];
+            uint8_t breakpoints[7];
         } string;
 
         struct {
@@ -234,6 +234,9 @@ typedef struct pm_lex_mode {
              * a tilde heredoc.
              */
             size_t common_whitespace;
+
+            /** True if the previous token ended with a line continuation. */
+            bool line_continuation;
         } heredoc;
     } as;
 
@@ -265,11 +268,29 @@ typedef enum {
     /** a begin statement */
     PM_CONTEXT_BEGIN,
 
+    /** an ensure statement with an explicit begin */
+    PM_CONTEXT_BEGIN_ENSURE,
+
+    /** a rescue else statement with an explicit begin */
+    PM_CONTEXT_BEGIN_ELSE,
+
+    /** a rescue statement with an explicit begin */
+    PM_CONTEXT_BEGIN_RESCUE,
+
     /** expressions in block arguments using braces */
     PM_CONTEXT_BLOCK_BRACES,
 
     /** expressions in block arguments using do..end */
     PM_CONTEXT_BLOCK_KEYWORDS,
+
+    /** an ensure statement within a do..end block */
+    PM_CONTEXT_BLOCK_ENSURE,
+
+    /** a rescue else statement within a do..end block */
+    PM_CONTEXT_BLOCK_ELSE,
+
+    /** a rescue statement within a do..end block */
+    PM_CONTEXT_BLOCK_RESCUE,
 
     /** a case when statements */
     PM_CONTEXT_CASE_WHEN,
@@ -280,11 +301,32 @@ typedef enum {
     /** a class declaration */
     PM_CONTEXT_CLASS,
 
+    /** an ensure statement within a class statement */
+    PM_CONTEXT_CLASS_ENSURE,
+
+    /** a rescue else statement within a class statement */
+    PM_CONTEXT_CLASS_ELSE,
+
+    /** a rescue statement within a class statement */
+    PM_CONTEXT_CLASS_RESCUE,
+
     /** a method definition */
     PM_CONTEXT_DEF,
 
+    /** an ensure statement within a method definition */
+    PM_CONTEXT_DEF_ENSURE,
+
+    /** a rescue else statement within a method definition */
+    PM_CONTEXT_DEF_ELSE,
+
+    /** a rescue statement within a method definition */
+    PM_CONTEXT_DEF_RESCUE,
+
     /** a method definition's parameters */
     PM_CONTEXT_DEF_PARAMS,
+
+    /** a defined? expression */
+    PM_CONTEXT_DEFINED,
 
     /** a method definition's default parameter */
     PM_CONTEXT_DEFAULT_PARAMS,
@@ -297,12 +339,6 @@ typedef enum {
 
     /** an interpolated expression */
     PM_CONTEXT_EMBEXPR,
-
-    /** an ensure statement */
-    PM_CONTEXT_ENSURE,
-
-    /** an ensure statement within a method definition */
-    PM_CONTEXT_ENSURE_DEF,
 
     /** a for loop */
     PM_CONTEXT_FOR,
@@ -319,11 +355,29 @@ typedef enum {
     /** a lambda expression with do..end */
     PM_CONTEXT_LAMBDA_DO_END,
 
+    /** an ensure statement within a lambda expression */
+    PM_CONTEXT_LAMBDA_ENSURE,
+
+    /** a rescue else statement within a lambda expression */
+    PM_CONTEXT_LAMBDA_ELSE,
+
+    /** a rescue statement within a lambda expression */
+    PM_CONTEXT_LAMBDA_RESCUE,
+
     /** the top level context */
     PM_CONTEXT_MAIN,
 
     /** a module declaration */
     PM_CONTEXT_MODULE,
+
+    /** an ensure statement within a module statement */
+    PM_CONTEXT_MODULE_ENSURE,
+
+    /** a rescue else statement within a module statement */
+    PM_CONTEXT_MODULE_ELSE,
+
+    /** a rescue statement within a module statement */
+    PM_CONTEXT_MODULE_RESCUE,
 
     /** a parenthesized expression */
     PM_CONTEXT_PARENS,
@@ -337,20 +391,23 @@ typedef enum {
     /** a BEGIN block */
     PM_CONTEXT_PREEXE,
 
-    /** a rescue else statement */
-    PM_CONTEXT_RESCUE_ELSE,
-
-    /** a rescue else statement within a method definition */
-    PM_CONTEXT_RESCUE_ELSE_DEF,
-
-    /** a rescue statement */
-    PM_CONTEXT_RESCUE,
-
-    /** a rescue statement within a method definition */
-    PM_CONTEXT_RESCUE_DEF,
+    /** a modifier rescue clause */
+    PM_CONTEXT_RESCUE_MODIFIER,
 
     /** a singleton class definition */
     PM_CONTEXT_SCLASS,
+
+    /** an ensure statement with a singleton class */
+    PM_CONTEXT_SCLASS_ENSURE,
+
+    /** a rescue else statement with a singleton class */
+    PM_CONTEXT_SCLASS_ELSE,
+
+    /** a rescue statement with a singleton class */
+    PM_CONTEXT_SCLASS_RESCUE,
+
+    /** a ternary expression */
+    PM_CONTEXT_TERNARY,
 
     /** an unless statement */
     PM_CONTEXT_UNLESS,
@@ -445,56 +502,118 @@ typedef struct {
     void (*callback)(void *data, pm_parser_t *parser, pm_token_t *token);
 } pm_lex_callback_t;
 
+/** The type of shareable constant value that can be set. */
+typedef uint8_t pm_shareable_constant_value_t;
+static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_NONE = 0x0;
+static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_LITERAL = 0x1;
+static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_EXPERIMENTAL_EVERYTHING = 0x2;
+static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_EXPERIMENTAL_COPY = 0x4;
+
+/**
+ * This tracks an individual local variable in a certain lexical context, as
+ * well as the number of times is it read.
+ */
+typedef struct {
+    /** The name of the local variable. */
+    pm_constant_id_t name;
+
+    /** The location of the local variable in the source. */
+    pm_location_t location;
+
+    /** The index of the local variable in the local table. */
+    uint32_t index;
+
+    /** The number of times the local variable is read. */
+    uint32_t reads;
+
+    /** The hash of the local variable. */
+    uint32_t hash;
+} pm_local_t;
+
+/**
+ * This is a set of local variables in a certain lexical context (method, class,
+ * module, etc.). We need to track how many times these variables are read in
+ * order to warn if they only get written.
+ */
+typedef struct pm_locals {
+    /** The number of local variables in the set. */
+    uint32_t size;
+
+    /** The capacity of the local variables set. */
+    uint32_t capacity;
+
+    /** The nullable allocated memory for the local variables in the set. */
+    pm_local_t *locals;
+} pm_locals_t;
+
+/** The flags about scope parameters that can be set. */
+typedef uint8_t pm_scope_parameters_t;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_NONE = 0x0;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_FORWARDING_POSITIONALS = 0x1;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_FORWARDING_KEYWORDS = 0x2;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_FORWARDING_BLOCK = 0x4;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_FORWARDING_ALL = 0x8;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_IMPLICIT_DISALLOWED = 0x10;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_NUMBERED_INNER = 0x20;
+static const pm_scope_parameters_t PM_SCOPE_PARAMETERS_NUMBERED_FOUND = 0x40;
+
 /**
  * This struct represents a node in a linked list of scopes. Some scopes can see
  * into their parent scopes, while others cannot.
  */
 typedef struct pm_scope {
-    /** The IDs of the locals in the given scope. */
-    pm_constant_id_list_t locals;
-
     /** A pointer to the previous scope in the linked list. */
     struct pm_scope *previous;
+
+    /** The IDs of the locals in the given scope. */
+    pm_locals_t locals;
+
+    /**
+     * This is a list of the implicit parameters contained within the block.
+     * These will be processed after the block is parsed to determine the kind
+     * of parameters node that should be used and to check if any errors need to
+     * be added.
+     */
+    pm_node_list_t implicit_parameters;
+
+    /**
+     * This is a bitfield that indicates the parameters that are being used in
+     * this scope. It is a combination of the PM_SCOPE_PARAMETERS_* constants.
+     * There are three different kinds of parameters that can be used in a
+     * scope:
+     *
+     * - Ordinary parameters (e.g., def foo(bar); end)
+     * - Numbered parameters (e.g., def foo; _1; end)
+     * - The it parameter (e.g., def foo; it; end)
+     *
+     * If ordinary parameters are being used, then certain parameters can be
+     * forwarded to another method/structure. Those are indicated by four
+     * additional bits in the params field. For example, some combinations of:
+     *
+     * - def foo(*); end
+     * - def foo(**); end
+     * - def foo(&); end
+     * - def foo(...); end
+     */
+    pm_scope_parameters_t parameters;
+
+    /**
+     * The current state of constant shareability for this scope. This is
+     * changed by magic shareable_constant_value comments.
+     */
+    pm_shareable_constant_value_t shareable_constant;
 
     /**
      * A boolean indicating whether or not this scope can see into its parent.
      * If closed is true, then the scope cannot see into its parent.
      */
     bool closed;
-
-    /**
-     * A boolean indicating whether or not this scope has explicit parameters.
-     * This is necessary to determine whether or not numbered parameters are
-     * allowed.
-     */
-    bool explicit_params;
-
-    /**
-     * Booleans indicating whether the parameters for this scope have declared
-     * forwarding parameters.
-     *
-     * For example, some combinations of:
-     *   def foo(*); end
-     *   def foo(**); end
-     *   def foo(&); end
-     *   def foo(...); end
-     */
-
-    uint8_t forwarding_params;
-
-    /**
-     * An integer indicating the number of numbered parameters on this scope.
-     * This is necessary to determine if child blocks are allowed to use
-     * numbered parameters, and to pass information to consumers of the AST
-     * about how many numbered parameters exist.
-     */
-    uint8_t numbered_parameters;
 } pm_scope_t;
 
-static const uint8_t PM_FORWARDING_POSITIONALS = 0x1;
-static const uint8_t PM_FORWARDING_KEYWORDS = 0x2;
-static const uint8_t PM_FORWARDING_BLOCK = 0x4;
-static const uint8_t PM_FORWARDING_ALL = 0x8;
+/**
+ * A struct that represents a stack of boolean values.
+ */
+typedef uint32_t pm_state_stack_t;
 
 /**
  * This struct represents the overall parser. It contains a reference to the
@@ -598,6 +717,15 @@ struct pm_parser {
     pm_context_node_t *current_context;
 
     /**
+     * The hash keys for the hash that is currently being parsed. This is not
+     * usually necessary because it can pass it down the various call chains,
+     * but in the event that you're parsing a hash that is being directly
+     * pushed into another hash with **, we need to share the hash keys so that
+     * we can warn for the nested hash as well.
+     */
+    pm_static_literals_t *current_hash_keys;
+
+    /**
      * The encoding functions for the current file is attached to the parser as
      * it's parsing so that it can change with a magic comment.
      */
@@ -688,11 +816,40 @@ struct pm_parser {
      */
     const pm_encoding_t *explicit_encoding;
 
-    /** The current parameter name id on parsing its default value. */
-    pm_constant_id_t current_param_name;
+    /**
+     * When parsing block exits (e.g., break, next, redo), we need to validate
+     * that they are in correct contexts. For the most part we can do this by
+     * looking at our parent contexts. However, modifier while and until
+     * expressions can change that context to make block exits valid. In these
+     * cases, we need to keep track of the block exits and then validate them
+     * after the expression has been parsed.
+     *
+     * We use a pointer here because we don't want to keep a whole list attached
+     * since this will only be used in the context of begin/end expressions.
+     */
+    pm_node_list_t *current_block_exits;
 
     /** The version of prism that we should use to parse. */
     pm_options_version_t version;
+
+    /** The command line flags given from the options. */
+    uint8_t command_line;
+
+    /**
+     * Whether or not we have found a frozen_string_literal magic comment with
+     * a true or false value.
+     * May be:
+     *  - PM_OPTIONS_FROZEN_STRING_LITERAL_DISABLED
+     *  - PM_OPTIONS_FROZEN_STRING_LITERAL_ENABLED
+     *  - PM_OPTIONS_FROZEN_STRING_LITERAL_UNSET
+     */
+    int8_t frozen_string_literal;
+
+    /**
+     * Whether or not we are parsing an eval string. This impacts whether or not
+     * we should evaluate if block exits/yields are valid.
+     */
+    bool parsing_eval;
 
     /** Whether or not we're at the beginning of a command. */
     bool command_start;
@@ -723,10 +880,10 @@ struct pm_parser {
     bool semantic_token_seen;
 
     /**
-     * Whether or not we have found a frozen_string_literal magic comment with
-     * a true value.
+     * True if the current regular expression being lexed contains only ASCII
+     * characters.
      */
-    bool frozen_string_literal;
+    bool current_regular_expression_ascii_only;
 };
 
 #endif

@@ -8,12 +8,13 @@ module Prism
   class CLI
     def run(argv)
       case argv.shift
+      when "benchmark"  then benchmark(argv)
+      when "bundle"     then bundle(argv)
       when "console"    then console
       when "dot"        then dot(argv)
       when "encoding"   then encoding(argv)
       when "lex"        then lex(argv)
       when "locals"     then locals(argv)
-      when "memsize"    then memsize
       when "parse"      then parse(argv)
       when "parser"     then parser(argv)
       when "ripper"     then ripper(argv)
@@ -21,12 +22,13 @@ module Prism
       else
         puts <<~TXT
           Usage:
+            bin/prism benchmark [source_file]
+            bin/prism bundle [...]
             bin/prism console
             bin/prism dot [source]
             bin/prism encoding [encoding]
             bin/prism lex [source]
             bin/prism locals [source]
-            bin/prism memsize
             bin/prism parse [source]
             bin/prism parser [source]
             bin/prism ripper [source]
@@ -40,6 +42,74 @@ module Prism
     ############################################################################
     # Commands
     ############################################################################
+
+    # bin/prism benchmark [source_file]
+    def benchmark(argv)
+      require "benchmark/ips"
+      require "parser/current"
+      require "ripper"
+      require "ruby_parser"
+
+      filepath = argv.fetch(0) { File.expand_path("../lib/prism/node.rb", __dir__) }
+      source = File.read(filepath)
+
+      Benchmark.ips do |x|
+        x.report("Prism") do
+          Prism.parse(source, filepath: filepath)
+        end
+
+        x.report("Ripper::SexpBuilder") do
+          Ripper.sexp_raw(source, filepath)
+        end
+
+        x.report("Prism::Translation::Ripper::SexpBuilder") do
+          Prism::Translation::Ripper.sexp_raw(source, filepath)
+        end
+
+        x.report("Parser::CurrentRuby") do
+          Parser::CurrentRuby.parse(source, filepath)
+        end
+
+        x.report("Prism::Translation::Parser") do
+          Prism::Translation::Parser.parse(source, filepath)
+        end
+
+        x.report("RubyParser") do
+          RubyParser.new.parse(source, filepath)
+        end
+
+        x.report("Prism::Translation::RubyParser") do
+          Prism::Translation::RubyParser.new.parse(source, filepath)
+        end
+
+        x.compare!
+      end
+    end
+
+    # bin/prism bundle [...]
+    def bundle(argv)
+      [
+        ["2.7.8", ["2.7"]],
+        ["3.0.6", ["3.0"]],
+        ["3.1.4", ["3.1"]],
+        ["3.2.3", ["3.2"]],
+        ["3.3.0", ["3.3"]],
+        ["3.4.0-dev", ["3.4", "typecheck"]],
+        ["jruby-9.4.5.0", ["jruby"]],
+        ["truffleruby-24.0.0", ["truffleruby"]]
+      ].each do |ruby_version, gemfiles|
+        gemfiles.each do |gemfile|
+          system(
+            { "BUNDLE_GEMFILE" => File.expand_path("../gemfiles/#{gemfile}/Gemfile", __dir__) },
+            "chruby-exec", ruby_version, "--", "bundle", *argv,
+            exception: true,
+            chdir: File.expand_path("../", __dir__)
+          )
+        rescue RuntimeError => error
+          warn("\e[31;m#{ruby_version} (#{gemfile}): #{error.message}\e[m")
+        end
+      end
+    end
 
     # bin/prism console
     def console
@@ -142,13 +212,13 @@ module Prism
 
     # bin/prism locals [source]
     def locals(argv)
-      source, filepath = read_source(argv)
+      source, _ = read_source(argv)
 
       puts "CRuby:"
       p Debug.cruby_locals(source)
-      
+
       puts "Prism:"
-      p Debug.prism_locals(source)    
+      p Debug.prism_locals(source)
     end
 
     # bin/prism parse [source]
@@ -174,53 +244,28 @@ module Prism
       end
     end
 
-    # bin/prism memsize
-    def memsize
-      require "yaml"
-
-      filepath = File.expand_path("../config.yml", __dir__)
-      results =
-        YAML.load_file(filepath).fetch("nodes").map do |node|
-          [
-            node["name"],
-            node.fetch("fields", []).sum do |field|
-              case field["type"]
-              when "uint8"                                             then 1
-              when "uint32", "constant", "constant?"                   then 4
-              when "node", "node?"                                     then 8
-              when "location", "location?"                             then 16
-              when "node[]", "string", "token", "token?", "constant[]" then 24
-              when "flags"                                             then 0
-              else raise "Unknown type: #{field["type"]}"
-              end
-            end
-          ]
-        end
-
-      results.sort_by(&:last).reverse_each do |name, size|
-        puts "#{name}: #{size}"
-      end
-    end
-
     # bin/prism parser [source]
     def parser(argv)
-      require "parser/current"
+      require "parser/ruby34"
       source, filepath = read_source(argv)
 
+      buffer = Parser::Source::Buffer.new(filepath, 1)
+      buffer.source = source
+
       puts "Parser:"
-      pp Parser::CurrentRuby.parse(source, filepath)
+      parser_parse(Parser::Ruby34.new, buffer)
 
       puts "Prism:"
-      pp Translation::Parser.parse(source, filepath)
+      parser_parse(Prism::Translation::Parser34.new, buffer)
     end
 
     # bin/prism ripper [source]
     def ripper(argv)
       require "ripper"
-      source, filepath = read_source(argv)
+      source, _ = read_source(argv)
 
       ripper = Ripper.sexp_raw(source)
-      prism = Prism::Translation::Ripper.sexp_raw(source) rescue :parse_error
+      prism = Prism::Translation::Ripper.sexp_raw(source)
 
       puts "Ripper:"
       pp ripper
@@ -249,6 +294,17 @@ module Prism
     ############################################################################
     # Helpers
     ############################################################################
+
+    # Parse a Parser::Source::Buffer with a given parser.
+    def parser_parse(parser, buffer)
+      diagnostics = []
+      parser.diagnostics.consumer = -> (diagnostic) { diagnostics << diagnostic }
+
+      parser_ast, _, parser_tokens = parser.tokenize(buffer, true)
+      pp diagnostics if diagnostics.any?
+      pp parser_ast
+      pp parser_tokens
+    end
 
     # Generate the list of values that will be used in a lookup table for a
     # given encoding.
@@ -291,18 +347,18 @@ module Prism
 
       { alpha: /[[:alpha:]]/, alnum: /[[:alnum:]]/, isupper: /[[:upper:]]/ }.map do |kind, regex|
         codepoints = range.select { |codepoint| codepoint.chr(encoding).match?(regex) }
-    
+
         previous = nil
         groups =
           codepoints.slice_before do |codepoint|
             (!previous.nil? && (codepoint - previous) != 1).tap { previous = codepoint }
           end
-    
+
         matched =
           groups.flat_map do |group|
             ["0x#{group.first.to_s(16).upcase}", "0x#{group.last.to_s(16).upcase}"]
           end
-    
+
         puts "\n#define UNICODE_#{kind.upcase}_CODEPOINTS_LENGTH #{matched.length}"
         puts "unicode_codepoint_t unicode_#{kind}_codepoints[UNICODE_#{kind.upcase}_CODEPOINTS_LENGTH] = {"
         matched.each_slice(2) { |slice| puts "    #{slice.join(", ")}," }
@@ -315,7 +371,7 @@ module Prism
       case argv.first
       when "-e"
         argv.shift
-        Prism.parse(argv.shift)
+        Prism.parse(argv.shift, command_line: "e")
       when nil
         Prism.parse_file("test.rb")
       else
