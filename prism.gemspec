@@ -1,14 +1,6 @@
 # frozen_string_literal: true
 
-<<<<<<< HEAD
 require_relative 'lib/prism/version'
-=======
-Gem::Specification.new do |spec|
-  spec.name = "prism"
-  spec.version = "0.29.0"
-  spec.authors = ["Shopify"]
-  spec.email = ["ruby@shopify.com"]
->>>>>>> main
 
 Gem::Specification.new do |spec|
   spec.name = "jruby-prism-parser"
@@ -113,6 +105,7 @@ Gem::Specification.new do |spec|
     "lib/prism/translation/ripper/sexp.rb",
     "lib/prism/translation/ripper/shim.rb",
     "lib/prism/translation/ruby_parser.rb",
+    "lib/prism/version.rb",
     "lib/prism/visitor.rb",
     "prism.gemspec",
     "rbi/prism.rbi",
@@ -164,8 +157,8 @@ Gem::Specification.new do |spec|
     "src/util/pm_string_list.c",
     "src/util/pm_string.c",
     "src/util/pm_strncasecmp.c",
+    "src/util/pm_strpbrk.c",
     "jruby-prism.jar"
-    "src/util/pm_strpbrk.c"
   ]
 
   spec.extensions = ["ext/prism/extconf.rb"]

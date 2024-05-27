@@ -66,7 +66,8 @@ if RUBY_ENGINE != "ruby"
   generate_templates
   soext = RbConfig::CONFIG["SOEXT"]
   # Pass SOEXT to avoid an extra subprocess just to query that
-  make({ "SOEXT" => soext }, "build/libprism.#{soext}")
+  lib_file = "build/libprism.#{soext}"
+  make({ "SOEXT" => soext }, lib_file)
   FileUtils.cp "../../#{lib_file}", RbConfig::CONFIG["libdir"]
   FileUtils.cp "../../jruby-prism.jar", "#{RbConfig::CONFIG['libdir']}/jruby-prism.jar"
   File.write("Makefile", "all install clean:\n\t@#{RbConfig::CONFIG["NULLCMD"]}\n")

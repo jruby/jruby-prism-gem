@@ -1,3 +1,3 @@
 module Prism
-  VERSION = '0.24.0'
+  VERSION = '0.29.0'
 end
