@@ -6,6 +6,94 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [1.2.0] - 2024-10-10
+
+### Added
+
+- Introduce `Prism::CodeUnitsCache`.
+
+### Changed
+
+- Properly handle lexing global variables that begin with `$-`.
+- Properly reject invalid multi writes within parentheses.
+- Fix unary `*` binding power.
+- Set `contains_keywords` flag for implicit `gets` calls when `-p` is used.
+- Properly reject invalid non-associative operator patterns.
+- Do not warn about unused variables declared on negative lines.
+
+## [1.1.0] - 2024-10-02
+
+### Added
+
+- Explicitly type each child node field in the Ruby API.
+- Add the `main_script` option to the parse APIs, which controls whether or not shebangs are considered.
+- Add the `partial_script` options to the parse APIs, which controls whether or not jumps that would otherwise be considered invalid are allowed. This is useful for parsing things like ERB sources, where you know it will be evaluated in a different context. Note that this functionality is replacing the previous idiom of passing in a list of scopes to indicate an `eval` context, because that behavior has changed upstream in `ruby/ruby`.
+- Add `ArgumentsNode#contains_multiple_splats?`.
+- Add `ArgumentsNode#contains_forwarding?`.
+- Accept all valid Ruby versions for the `version` option on parse APIs.
+- Accept version shorthands like `"3.3"` and `"3.4"` for the `version` option on parse APIs.
+- Support a max depth to protect against malicious payloads without hitting the stack limit.
+
+### Changed
+
+- Fix some token incompatibilities in the `parser` translation.
+- Fix up parsing tempfiles on Windows.
+- Fix up handling UTF-8 characters in file paths on Windows.
+- Do not warn for a `\r` at the end of a shebang on Windows.
+- Properly handle erroring for parsing a directory on Windows.
+- When a numbered reference is out of range, warn instead of raise.
+- Allow returns in default parameter values.
+- Reject many more invalid syntax patterns.
+
+## [1.0.0] - 2024-08-28
+
+### Added
+
+- Add `Node#breadth_first_search`.
+- Add `Node#node_id`.
+- Add `ArgumentsNode#contains_splat?`.
+- Passing the special value `false` for the `encoding` option tells Prism to ignore magic encoding comments.
+- Expose flags on every node type (allows checking static literal and newline).
+- Implement mismatched indentation warning.
+- Add C API for receiving a callback when parsing shebangs with additional flags.
+
+### Changed
+
+- **BREAKING**: Some fields are renamed that had illogical names. The previous names all now emit deprecation warnings.
+  - `CaseMatchNode#consequent` was renamed to `CaseMatchNode#else_clause`
+  - `CaseNode#consequent` was renamed to `CaseNode#else_clause`
+  - `IfNode#consequent` was renamed to `IfNode#subsequent`
+  - `RescueNode#consequent` was renamed to `RescueNode#subsequent`
+  - `UnlessNode#consequent` was renamed to `UnlessNode#else_clause`
+- Block exits are now allowed in loop predicates (e.g., `while _ && break do end`).
+- Multi-writes are now disallowed when not at the statement level.
+- Ensure that range operators are non-associative.
+- (JavaScript) Correctly deserialize encoded strings.
+- Properly support parsing regular expressions in extended mode.
+- Use gmake on FreeBSD.
+- Parsing streams now handles NUL bytes in the middle of the stream.
+- Properly detect invalid returns.
+
+## [0.30.0] - 2024-06-07
+
+### Added
+
+- More correctly raise mixed encoding errors.
+- Implement ambiguous binary operator warning.
+- Fix up regexp escapes with control and meta characters.
+- Fix up support for the `it` implicit local variable.
+- Heredoc identifiers now properly disallow CLRF.
+- Errors added for void value expressions in begin clauses.
+- Many updates to more closely match the `parser` gem in parser translation.
+- Many errors added for invalid regular expressions.
+
+### Changed
+
+- Handle parser translation missing the `parser` gem.
+- Handle ruby_parser translation missing the `ruby_parser` gem.
+- Various error messages have been updated to more closely match CRuby.
+- `RationalNode` now has a `numerator` and `denominator` field instead of a `numeric` field. For the Ruby API we provide a `RationalNode#numeric` method for backwards-compatibility.
+
 ## [0.29.0] - 2024-05-10
 
 ### Added
@@ -518,7 +606,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - 🎉 Initial release! 🎉
 
-[unreleased]: https://github.com/ruby/prism/compare/v0.29.0...HEAD
+[unreleased]: https://github.com/ruby/prism/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/ruby/prism/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/ruby/prism/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/ruby/prism/compare/v0.30.0...v1.0.0
+[0.30.0]: https://github.com/ruby/prism/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/ruby/prism/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/ruby/prism/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/ruby/prism/compare/v0.26.0...v0.27.0

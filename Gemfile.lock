@@ -1,46 +1,27 @@
 PATH
   remote: .
   specs:
-    jruby-prism-parser (0.23.0.pre.SNAPSHOT-java)
+    jruby-prism-parser (1.2.0-java)
 
 GEM
   remote: https://rubygems.org/
   specs:
-    ast (2.4.2)
-    benchmark-ips (2.13.0)
-    ffi (1.16.3)
-    mini_portile2 (2.8.6)
-    nokogiri (1.16.5)
-      mini_portile2 (~> 2.8.2)
-      racc (~> 1.4)
-    nokogiri (1.16.2-java)
-      racc (~> 1.4)
-    parser (3.3.0.5)
-      ast (~> 2.4.1)
-      racc
-    power_assert (2.0.3)
-    racc (1.7.3)
-    racc (1.7.3-java)
-    rake (13.1.0)
-    rake-compiler (1.2.6)
+    benchmark-ips (2.14.0)
+    power_assert (2.0.4)
+    rake (13.2.1)
+    rake-compiler (1.2.8)
       rake
-    ruby_memcheck (3.0.0)
-      nokogiri
-    ruby_parser (3.21.0)
-      racc (~> 1.5)
-      sexp_processor (~> 4.16)
-    sexp_processor (4.17.1)
     test-unit (3.6.2)
       power_assert
 
 PLATFORMS
-  arm64-darwin-23
-  universal-java-1.8
+  universal-java-11
 
 DEPENDENCIES
   benchmark-ips
   ffi
   jruby-prism-parser!
+  onigmo
   parser
   rake
   rake-compiler

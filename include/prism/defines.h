@@ -26,6 +26,15 @@
 #include <inttypes.h>
 
 /**
+ * When we are parsing using recursive descent, we want to protect against
+ * malicious payloads that could attempt to crash our parser. We do this by
+ * specifying a maximum depth to which we are allowed to recurse.
+ */
+#ifndef PRISM_DEPTH_MAXIMUM
+    #define PRISM_DEPTH_MAXIMUM 1000
+#endif
+
+/**
  * By default, we compile with -fvisibility=hidden. When this is enabled, we
  * need to mark certain functions as being publically-visible. This macro does
  * that in a compiler-agnostic way.
@@ -119,6 +128,15 @@
 #endif
 
 /**
+ * If PRISM_HAS_NO_FILESYSTEM is defined, then we want to exclude all filesystem
+ * related code from the library. All filesystem related code should be guarded
+ * by PRISM_HAS_FILESYSTEM.
+ */
+#ifndef PRISM_HAS_NO_FILESYSTEM
+#   define PRISM_HAS_FILESYSTEM
+#endif
+
+/**
  * isinf on Windows is defined as accepting a float, but on POSIX systems it
  * accepts a float, a double, or a long double. We want to mirror this behavior
  * on windows.
@@ -201,6 +219,24 @@
 
     /** Exclude the full set of encodings, using the minimal only. */
     #define PRISM_ENCODING_EXCLUDE_FULL
+#endif
+
+/**
+ * Support PRISM_LIKELY and PRISM_UNLIKELY to help the compiler optimize its
+ * branch predication.
+ */
+#if defined(__GNUC__) || defined(__clang__)
+    /** The compiler should predicate that this branch will be taken. */
+    #define PRISM_LIKELY(x) __builtin_expect(!!(x), 1)
+
+    /** The compiler should predicate that this branch will not be taken. */
+    #define PRISM_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+    /** Void because this platform does not support branch prediction hints. */
+    #define PRISM_LIKELY(x)   (x)
+
+    /** Void because this platform does not support branch prediction hints. */
+    #define PRISM_UNLIKELY(x) (x)
 #endif
 
 #endif

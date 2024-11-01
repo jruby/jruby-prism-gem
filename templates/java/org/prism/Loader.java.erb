@@ -100,8 +100,8 @@ public class Loader {
         expect((byte) 'S', "incorrect prism header");
         expect((byte) 'M', "incorrect prism header");
 
-        expect((byte) 0, "prism major version does not match");
-        expect((byte) 29, "prism minor version does not match");
+        expect((byte) 1, "prism major version does not match");
+        expect((byte) 2, "prism minor version does not match");
         expect((byte) 0, "prism patch version does not match");
 
         expect((byte) 1, "Loader.java requires no location fields in the serialized output");
@@ -127,16 +127,21 @@ public class Loader {
         int constantPoolLength = loadVarUInt();
         this.constantPool = new ConstantPool(this, source.bytes, constantPoolBufferOffset, constantPoolLength);
 
-        Nodes.Node node = loadNode();
+        Nodes.Node node;
+        if (errors.length == 0) {
+            node = loadNode();
 
-        int left = constantPoolBufferOffset - buffer.position();
-        if (left != 0) {
-            throw new Error("Expected to consume all bytes while deserializing but there were " + left + " bytes left");
+            int left = constantPoolBufferOffset - buffer.position();
+            if (left != 0) {
+                throw new Error("Expected to consume all bytes while deserializing but there were " + left + " bytes left");
+            }
+
+            boolean[] newlineMarked = new boolean[1 + source.getLineCount()];
+            MarkNewlinesVisitor visitor = new MarkNewlinesVisitor(source, newlineMarked);
+            node.accept(visitor);
+        } else {
+            node = null;
         }
-
-        boolean[] newlineMarked = new boolean[1 + source.getLineCount()];
-        MarkNewlinesVisitor visitor = new MarkNewlinesVisitor(source, newlineMarked);
-        node.accept(visitor);
 
         return new ParseResult(node, magicComments, dataLocation, errors, warnings, source);
     }
@@ -361,7 +366,9 @@ public class Loader {
             <%- nodes.each_with_index do |node, index| -%>
             case <%= index + 1 %>:
             <%-
-            params = node.needs_serialized_length? ? ["buffer.getInt()"] : []
+            params = ["startOffset", "length"]
+            params << "buffer.getInt()" if node.needs_serialized_length?
+            params << "loadFlags()" if node.flags
             params.concat node.semantic_fields.map { |field|
               case field
               when Prism::Template::NodeField then "#{field.java_cast}loadNode()"
@@ -378,13 +385,11 @@ public class Loader {
               when Prism::Template::OptionalLocationField then "loadOptionalLocation()"
               when Prism::Template::UInt8Field then "buffer.get()"
               when Prism::Template::UInt32Field then "loadVarUInt()"
-              when Prism::Template::FlagsField then "loadFlags()"
               when Prism::Template::IntegerField then "loadInteger()"
               when Prism::Template::DoubleField then "buffer.getDouble()"
               else raise
               end
             }
-            params.concat ["startOffset", "length"]
             -%>
                 return new Nodes.<%= node.name %>(<%= params.join(", ") -%>);
             <%- end -%>

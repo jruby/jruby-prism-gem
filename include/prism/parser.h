@@ -83,6 +83,23 @@ typedef enum {
 } pm_heredoc_indent_t;
 
 /**
+ * All of the information necessary to store to lexing a heredoc.
+ */
+typedef struct {
+    /** A pointer to the start of the heredoc identifier. */
+    const uint8_t *ident_start;
+
+    /** The length of the heredoc identifier. */
+    size_t ident_length;
+
+    /** The type of quote that the heredoc uses. */
+    pm_heredoc_quote_t quote;
+
+    /** The type of indentation that the heredoc uses. */
+    pm_heredoc_indent_t indent;
+} pm_heredoc_lex_mode_t;
+
+/**
  * When lexing Ruby source, the lexer has a small amount of state to tell which
  * kind of token it is currently lexing. For example, when we find the start of
  * a string, the first token that we return is a TOKEN_STRING_BEGIN token. After
@@ -210,17 +227,10 @@ typedef struct pm_lex_mode {
         } string;
 
         struct {
-            /** A pointer to the start of the heredoc identifier. */
-            const uint8_t *ident_start;
-
-            /** The length of the heredoc identifier. */
-            size_t ident_length;
-
-            /** The type of quote that the heredoc uses. */
-            pm_heredoc_quote_t quote;
-
-            /** The type of indentation that the heredoc uses. */
-            pm_heredoc_indent_t indent;
+            /**
+             * All of the data necessary to lex a heredoc.
+             */
+            pm_heredoc_lex_mode_t base;
 
             /**
              * This is the pointer to the character where lexing should resume
@@ -233,7 +243,7 @@ typedef struct pm_lex_mode {
              * line so that we know how much to dedent each line in the case of
              * a tilde heredoc.
              */
-            size_t common_whitespace;
+            size_t *common_whitespace;
 
             /** True if the previous token ended with a line continuation. */
             bool line_continuation;
@@ -364,6 +374,9 @@ typedef enum {
     /** a rescue statement within a lambda expression */
     PM_CONTEXT_LAMBDA_RESCUE,
 
+    /** the predicate clause of a loop statement */
+    PM_CONTEXT_LOOP_PREDICATE,
+
     /** the top level context */
     PM_CONTEXT_MAIN,
 
@@ -378,6 +391,9 @@ typedef enum {
 
     /** a rescue statement within a module statement */
     PM_CONTEXT_MODULE_RESCUE,
+
+    /** a multiple target expression */
+    PM_CONTEXT_MULTI_TARGET,
 
     /** a parenthesized expression */
     PM_CONTEXT_PARENS,
@@ -505,9 +521,9 @@ typedef struct {
 /** The type of shareable constant value that can be set. */
 typedef uint8_t pm_shareable_constant_value_t;
 static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_NONE = 0x0;
-static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_LITERAL = 0x1;
-static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_EXPERIMENTAL_EVERYTHING = 0x2;
-static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_EXPERIMENTAL_COPY = 0x4;
+static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_LITERAL = PM_SHAREABLE_CONSTANT_NODE_FLAGS_LITERAL;
+static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_EXPERIMENTAL_EVERYTHING = PM_SHAREABLE_CONSTANT_NODE_FLAGS_EXPERIMENTAL_EVERYTHING;
+static const pm_shareable_constant_value_t PM_SCOPE_SHAREABLE_CONSTANT_EXPERIMENTAL_COPY = PM_SHAREABLE_CONSTANT_NODE_FLAGS_EXPERIMENTAL_COPY;
 
 /**
  * This tracks an individual local variable in a certain lexical context, as
@@ -622,6 +638,13 @@ typedef uint32_t pm_state_stack_t;
  * it's considering.
  */
 struct pm_parser {
+    /**
+     * The next node identifier that will be assigned. This is a unique
+     * identifier used to track nodes such that the syntax tree can be dropped
+     * but the node can be found through another parse.
+     */
+    uint32_t node_id;
+
     /** The current state of the lexer. */
     pm_lex_state_t lex_state;
 
@@ -851,11 +874,26 @@ struct pm_parser {
      */
     bool parsing_eval;
 
+    /**
+     * Whether or not we are parsing a "partial" script, which is a script that
+     * will be evaluated in the context of another script, so we should not
+     * check jumps (next/break/etc.) for validity.
+     */
+    bool partial_script;
+
     /** Whether or not we're at the beginning of a command. */
     bool command_start;
 
     /** Whether or not we're currently recovering from a syntax error. */
     bool recovering;
+
+    /**
+     * This is very specialized behavior for when you want to parse in a context
+     * that does not respect encoding comments. Its main use case is translating
+     * into the whitequark/parser AST which re-encodes source files in UTF-8
+     * before they are parsed and ignores encoding comments.
+     */
+    bool encoding_locked;
 
     /**
      * Whether or not the encoding has been changed by a magic comment. We use
@@ -884,6 +922,12 @@ struct pm_parser {
      * characters.
      */
     bool current_regular_expression_ascii_only;
+
+    /**
+     * By default, Ruby always warns about mismatched indentation. This can be
+     * toggled with a magic comment.
+     */
+    bool warn_mismatched_indentation;
 };
 
 #endif

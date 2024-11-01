@@ -40,6 +40,8 @@ The repository contains the infrastructure for both a shared library (libprism) 
 ├── rust
 │   ├── ruby-prism        Rustified crate for the shared library
 │   └── ruby-prism-sys    FFI binding for Rust
+├── sample
+│   └── prism             Sample code that uses the Ruby API for documentation purposes
 ├── sig                   RBS type signatures for the Ruby library
 ├── src
 │   ├── util              various utility files
@@ -119,6 +121,7 @@ Prism has been integrated into the majority of Ruby runtimes, many libraries, an
 ### Libraries
 
 * [dispersion](https://github.com/joeldrapper/dispersion)
+* [minifyrb](https://github.com/koic/minifyrb)
 * [packwerk](https://github.com/Shopify/packwerk/pull/388) (via parser translator)
 * [rbi](https://github.com/Shopify/rbi)
 * [rails](https://github.com/rails/rails)
@@ -131,7 +134,16 @@ Prism has been integrated into the majority of Ruby runtimes, many libraries, an
 * [smart_todo](https://github.com/Shopify/smart_todo/pull/69)
 * [sorbet-eraser](https://github.com/kddnewton/sorbet-eraser/pull/25)
 * [synvert](https://github.com/xinminlabs/synvert-core-ruby)
+* [typeprof](https://github.com/ruby/typeprof)
 
 ### Applications
 
 * [gem.sh](https://github.com/marcoroth/gem.sh/pull/96)
+
+### JRuby gem stuff
+
+- fetch upstream to main in this repository
+- merge to main
+- merge to jruby_gem branch with last released tag
+- update lib/prism/version.rb to match version
+- re-run bundler to kill conflicts in Gemfile.lock

@@ -5,6 +5,18 @@ module Prism
     def find_line: (Integer) -> Integer
   end
 
+  class CodeUnitsCache
+    class UTF16Counter
+      def initialize: (String source, Encoding encoding) -> void
+      def count: (Integer byte_offset, Integer byte_length) -> Integer
+    end
+
+    class LengthCounter
+      def initialize: (String source, Encoding encoding) -> void
+      def count: (Integer byte_offset, Integer byte_length) -> Integer
+    end
+  end
+
   class Location
     private
 
@@ -47,6 +59,13 @@ module Prism
       private
 
       def nearest_targets: (Prism::node, comment) -> (untyped | ::Array[untyped])
+    end
+
+    class Errors
+      attr_reader parse_result: ParseResult
+
+      def initialize: (ParseResult parse_result) -> void
+      def format: () -> String
     end
 
     class Newlines < Visitor

@@ -40,6 +40,9 @@ public class DummyTest {
             false,
             EnumSet.noneOf(ParsingOptions.CommandLine.class),
             ParsingOptions.SyntaxVersion.LATEST,
+            false,
+            false,
+            false,
             new byte[][][] {}
         );
 
@@ -91,6 +94,9 @@ public class DummyTest {
             false,
             EnumSet.noneOf(ParsingOptions.CommandLine.class),
             ParsingOptions.SyntaxVersion.LATEST,
+            false,
+            false,
+            false,
             new byte[][][] {}
         );
 

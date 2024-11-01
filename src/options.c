@@ -1,6 +1,15 @@
 #include "prism/options.h"
 
 /**
+ * Set the shebang callback option on the given options struct.
+ */
+PRISM_EXPORTED_FUNCTION void
+pm_options_shebang_callback_set(pm_options_t *options, pm_options_shebang_callback_t shebang_callback, void *shebang_callback_data) {
+    options->shebang_callback = shebang_callback;
+    options->shebang_callback_data = shebang_callback_data;
+}
+
+/**
  * Set the filepath option on the given options struct.
  */
 PRISM_EXPORTED_FUNCTION void
@@ -14,6 +23,14 @@ pm_options_filepath_set(pm_options_t *options, const char *filepath) {
 PRISM_EXPORTED_FUNCTION void
 pm_options_encoding_set(pm_options_t *options, const char *encoding) {
     pm_string_constant_init(&options->encoding, encoding, strlen(encoding));
+}
+
+/**
+ * Set the encoding_locked option on the given options struct.
+ */
+PRISM_EXPORTED_FUNCTION void
+pm_options_encoding_locked_set(pm_options_t *options, bool encoding_locked) {
+    options->encoding_locked = encoding_locked;
 }
 
 /**
@@ -41,46 +58,75 @@ pm_options_command_line_set(pm_options_t *options, uint8_t command_line) {
 }
 
 /**
+ * Checks if the given slice represents a number.
+ */
+static inline bool
+is_number(const char *string, size_t length) {
+    return pm_strspn_decimal_digit((const uint8_t *) string, (ptrdiff_t) length) == length;
+}
+
+/**
  * Set the version option on the given options struct by parsing the given
  * string. If the string contains an invalid option, this returns false.
  * Otherwise, it returns true.
  */
 PRISM_EXPORTED_FUNCTION bool
 pm_options_version_set(pm_options_t *options, const char *version, size_t length) {
-    switch (length) {
-        case 0:
-            if (version == NULL) {
-                options->version = PM_OPTIONS_VERSION_LATEST;
-                return true;
-            }
-
-            return false;
-        case 5:
-            assert(version != NULL);
-
-            if ((strncmp(version, "3.3.0", length) == 0) || (strncmp(version, "3.3.1", length) == 0)) {
-                options->version = PM_OPTIONS_VERSION_CRUBY_3_3;
-                return true;
-            }
-
-            if (strncmp(version, "3.4.0", length) == 0) {
-                options->version = PM_OPTIONS_VERSION_LATEST;
-                return true;
-            }
-
-            return false;
-        case 6:
-            assert(version != NULL);
-
-            if (strncmp(version, "latest", length) == 0) {
-                options->version = PM_OPTIONS_VERSION_LATEST;
-                return true;
-            }
-
-            return false;
-        default:
-            return false;
+    if (version == NULL) {
+        options->version = PM_OPTIONS_VERSION_LATEST;
+        return true;
     }
+
+    if (length == 3) {
+        if (strncmp(version, "3.3", 3) == 0) {
+            options->version = PM_OPTIONS_VERSION_CRUBY_3_3;
+            return true;
+        }
+
+        if (strncmp(version, "3.4", 3) == 0) {
+            options->version = PM_OPTIONS_VERSION_LATEST;
+            return true;
+        }
+
+        return false;
+    }
+
+    if (length >= 4) {
+        if (strncmp(version, "3.3.", 4) == 0 && is_number(version + 4, length - 4)) {
+            options->version = PM_OPTIONS_VERSION_CRUBY_3_3;
+            return true;
+        }
+
+        if (strncmp(version, "3.4.", 4) == 0 && is_number(version + 4, length - 4)) {
+            options->version = PM_OPTIONS_VERSION_LATEST;
+            return true;
+        }
+    }
+
+    if (length >= 6) {
+        if (strncmp(version, "latest", 7) == 0) { // 7 to compare the \0 as well
+            options->version = PM_OPTIONS_VERSION_LATEST;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Set the main script option on the given options struct.
+ */
+PRISM_EXPORTED_FUNCTION void
+pm_options_main_script_set(pm_options_t *options, bool main_script) {
+    options->main_script = main_script;
+}
+
+/**
+ * Set the partial script option on the given options struct.
+ */
+PRISM_EXPORTED_FUNCTION void
+pm_options_partial_script_set(pm_options_t *options, bool partial_script) {
+    options->partial_script = partial_script;
 }
 
 // For some reason, GCC analyzer thinks we're leaking allocated scopes and
@@ -215,6 +261,9 @@ pm_options_read(pm_options_t *options, const char *data) {
     options->frozen_string_literal = (int8_t) *data++;
     options->command_line = (uint8_t) *data++;
     options->version = (pm_options_version_t) *data++;
+    options->encoding_locked = ((uint8_t) *data++) > 0;
+    options->main_script = ((uint8_t) *data++) > 0;
+    options->partial_script = ((uint8_t) *data++) > 0;
 
     uint32_t scopes_count = pm_options_read_u32(data);
     data += 4;

@@ -116,7 +116,9 @@ Each node is structured like the following table:
 | # bytes | field |
 | --- | --- |
 | `1` | node type |
+| varuint | node identifier |
 | location | node location |
+| varuint | node flags |
 
 Every field on the node is then appended to the serialized string. The fields can be determined by referencing `config.yml`. Depending on the type of field, it could take a couple of different forms, described below:
 
@@ -199,6 +201,7 @@ The final argument to `pm_serialize_parse` is an optional string that controls t
 | `1`     | frozen string literal      |
 | `1`     | command line flags         |
 | `1`     | syntax version, see [pm_options_version_t](https://github.com/ruby/prism/blob/main/include/prism/options.h) for valid values |
+| `1`     | whether or not the encoding is locked (should almost always be false) |
 | `4`     | the number of scopes       |
 | ...     | the scopes                 |
 

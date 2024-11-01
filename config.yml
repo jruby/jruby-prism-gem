@@ -15,7 +15,6 @@ errors:
   - ARGUMENT_FORMAL_GLOBAL
   - ARGUMENT_FORMAL_IVAR
   - ARGUMENT_FORWARDING_UNBOUND
-  - ARGUMENT_IN
   - ARGUMENT_NO_FORWARDING_AMPERSAND
   - ARGUMENT_NO_FORWARDING_ELLIPSES
   - ARGUMENT_NO_FORWARDING_STAR
@@ -81,8 +80,10 @@ errors:
   - ESCAPE_INVALID_META_REPEAT
   - ESCAPE_INVALID_UNICODE
   - ESCAPE_INVALID_UNICODE_CM_FLAGS
+  - ESCAPE_INVALID_UNICODE_LIST
   - ESCAPE_INVALID_UNICODE_LITERAL
   - ESCAPE_INVALID_UNICODE_LONG
+  - ESCAPE_INVALID_UNICODE_SHORT
   - ESCAPE_INVALID_UNICODE_TERM
   - EXPECT_ARGUMENT
   - EXPECT_EOL_AFTER_STATEMENT
@@ -97,6 +98,7 @@ errors:
   - EXPECT_EXPRESSION_AFTER_SPLAT
   - EXPECT_EXPRESSION_AFTER_SPLAT_HASH
   - EXPECT_EXPRESSION_AFTER_STAR
+  - EXPECT_FOR_DELIMITER
   - EXPECT_IDENT_REQ_PARAMETER
   - EXPECT_IN_DELIMITER
   - EXPECT_LPAREN_REQ_PARAMETER
@@ -105,6 +107,7 @@ errors:
   - EXPECT_RPAREN
   - EXPECT_RPAREN_AFTER_MULTI
   - EXPECT_RPAREN_REQ_PARAMETER
+  - EXPECT_SINGLETON_CLASS_DELIMITER
   - EXPECT_STRING_CONTENT
   - EXPECT_WHEN_DELIMITER
   - EXPRESSION_BARE_HASH
@@ -138,6 +141,7 @@ errors:
   - INSTANCE_VARIABLE_BARE
   - INVALID_BLOCK_EXIT
   - INVALID_CHARACTER
+  - INVALID_COMMA
   - INVALID_ENCODING_MAGIC_COMMENT
   - INVALID_ESCAPE_CHARACTER
   - INVALID_FLOAT_EXPONENT
@@ -183,7 +187,9 @@ errors:
   - MODULE_TERM
   - MULTI_ASSIGN_MULTI_SPLATS
   - MULTI_ASSIGN_UNEXPECTED_REST
+  - NESTING_TOO_DEEP
   - NO_LOCAL_VARIABLE
+  - NON_ASSOCIATIVE_OPERATOR
   - NOT_EXPRESSION
   - NUMBER_LITERAL_UNDERSCORE
   - NUMBERED_PARAMETER_INNER_BLOCK
@@ -206,8 +212,9 @@ errors:
   - PARAMETER_SPLAT_MULTI
   - PARAMETER_STAR
   - PARAMETER_UNEXPECTED_FWD
-  - PARAMETER_WILD_LOOSE_COMMA
   - PARAMETER_UNEXPECTED_NO_KW
+  - PARAMETER_WILD_LOOSE_COMMA
+  - PATTERN_ARRAY_MULTIPLE_RESTS
   - PATTERN_CAPTURE_DUPLICATE
   - PATTERN_EXPRESSION_AFTER_BRACKET
   - PATTERN_EXPRESSION_AFTER_COMMA
@@ -219,6 +226,7 @@ errors:
   - PATTERN_EXPRESSION_AFTER_PIPE
   - PATTERN_EXPRESSION_AFTER_RANGE
   - PATTERN_EXPRESSION_AFTER_REST
+  - PATTERN_FIND_MISSING_INNER
   - PATTERN_HASH_IMPLICIT
   - PATTERN_HASH_KEY
   - PATTERN_HASH_KEY_DUPLICATE
@@ -236,6 +244,7 @@ errors:
   - REGEXP_INCOMPAT_CHAR_ENCODING
   - REGEXP_INVALID_UNICODE_RANGE
   - REGEXP_NON_ESCAPED_MBC
+  - REGEXP_PARSE_ERROR
   - REGEXP_TERM
   - REGEXP_UNKNOWN_OPTIONS
   - REGEXP_UTF8_CHAR_NON_UTF8_REGEXP
@@ -260,11 +269,15 @@ errors:
   - TERNARY_COLON
   - TERNARY_EXPRESSION_FALSE
   - TERNARY_EXPRESSION_TRUE
+  - UNARY_DISALLOWED
   - UNARY_RECEIVER
   - UNDEF_ARGUMENT
   - UNEXPECTED_BLOCK_ARGUMENT
   - UNEXPECTED_INDEX_BLOCK
   - UNEXPECTED_INDEX_KEYWORDS
+  - UNEXPECTED_LABEL
+  - UNEXPECTED_MULTI_WRITE
+  - UNEXPECTED_RANGE_OPERATOR
   - UNEXPECTED_SAFE_NAVIGATION
   - UNEXPECTED_TOKEN_CLOSE_CONTEXT
   - UNEXPECTED_TOKEN_IGNORE
@@ -292,10 +305,11 @@ warnings:
   - DUPLICATED_WHEN_CLAUSE
   - FLOAT_OUT_OF_RANGE
   - IGNORED_FROZEN_STRING_LITERAL
+  - INDENTATION_MISMATCH
   - INTEGER_IN_FLIP_FLOP
   - INVALID_CHARACTER
+  - INVALID_MAGIC_COMMENT_VALUE
   - INVALID_NUMBERED_REFERENCE
-  - INVALID_SHAREABLE_CONSTANT_VALUE
   - KEYWORD_EOL
   - LITERAL_IN_CONDITION_DEFAULT
   - LITERAL_IN_CONDITION_VERBOSE
@@ -638,10 +652,16 @@ tokens:
 flags:
   - name: ArgumentsNodeFlags
     values:
+      - name: CONTAINS_FORWARDING
+        comment: "if the arguments contain forwarding"
       - name: CONTAINS_KEYWORDS
-        comment: "if arguments contain keywords"
+        comment: "if the arguments contain keywords"
       - name: CONTAINS_KEYWORD_SPLAT
-        comment: "if arguments contain keyword splat"
+        comment: "if the arguments contain a keyword splat"
+      - name: CONTAINS_SPLAT
+        comment: "if the arguments contain a splat"
+      - name: CONTAINS_MULTIPLE_SPLATS
+        comment: "if the arguments contain multiple splats"
     comment: Flags for arguments nodes.
   - name: ArrayNodeFlags
     values:
@@ -729,11 +749,6 @@ flags:
       - name: FORCED_US_ASCII_ENCODING
         comment: "internal bytes forced the encoding to US-ASCII"
     comment: Flags for regular expression and match last line nodes.
-  - name: ReturnNodeFlags
-    values:
-      - name: REDUNDANT
-        comment: "a return statement that is redundant because it is the last statement in a method"
-    comment: Flags for return nodes.
   - name: ShareableConstantNodeFlags
     values:
       - name: LITERAL
@@ -768,15 +783,25 @@ nodes:
     fields:
       - name: new_name
         type: node
+        kind:
+          - GlobalVariableReadNode
+          - BackReferenceReadNode
+          - NumberedReferenceReadNode
         comment: |
-          Represents the new name of the global variable that can be used after aliasing. This can be either a global variable, a back reference, or a numbered reference.
+          Represents the new name of the global variable that can be used after aliasing.
 
               alias $foo $bar
                     ^^^^
       - name: old_name
         type: node
+        kind:
+          - GlobalVariableReadNode
+          - BackReferenceReadNode
+          - NumberedReferenceReadNode
+          - on error: SymbolNode # alias $a b
+          - on error: MissingNode # alias $a 42
         comment: |
-          Represents the old name of the global variable that could be used before aliasing. This can be either a global variable, a back reference, or a numbered reference.
+          Represents the old name of the global variable that can be used before aliasing.
 
               alias $foo $bar
                          ^^^^
@@ -796,8 +821,38 @@ nodes:
     fields:
       - name: new_name
         type: node
+        kind:
+          - SymbolNode
+          - InterpolatedSymbolNode
+        comment: |
+          Represents the new name of the method that will be aliased.
+
+              alias foo bar
+                    ^^^
+
+              alias :foo :bar
+                    ^^^^
+
+              alias :"#{foo}" :"#{bar}"
+                    ^^^^^^^^^
       - name: old_name
         type: node
+        kind:
+          - SymbolNode
+          - InterpolatedSymbolNode
+          - on error: GlobalVariableReadNode # alias a $b
+          - on error: MissingNode # alias a 42
+        comment: |
+          Represents the old name of the method that will be aliased.
+
+              alias foo bar
+                        ^^^
+
+              alias :foo :bar
+                         ^^^^
+
+              alias :"#{foo}" :"#{bar}"
+                              ^^^^^^^^^
       - name: keyword_loc
         type: location
     comment: |
@@ -809,10 +864,27 @@ nodes:
     fields:
       - name: left
         type: node
+        kind: pattern expression
+        comment: |
+          Represents the left side of the expression.
+
+              foo => bar | baz
+                     ^^^
       - name: right
         type: node
+        kind: pattern expression
+        comment: |
+          Represents the right side of the expression.
+
+              foo => bar | baz
+                           ^^^
       - name: operator_loc
         type: location
+        comment: |
+          Represents the alternation operator location.
+
+              foo => bar | baz
+                         ^
     comment: |
       Represents an alternation pattern in pattern matching.
 
@@ -822,6 +894,7 @@ nodes:
     fields:
       - name: left
         type: node
+        kind: non-void expression
         comment: |
           Represents the left side of the expression. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -832,8 +905,9 @@ nodes:
               ^
       - name: right
         type: node
+        kind: Node
         comment: |
-          Represents the right side of the expression. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
+          Represents the right side of the expression.
 
               left && right
                       ^^^^^
@@ -853,24 +927,22 @@ nodes:
           left and right
           ^^^^^^^^^^^^^^
   - name: ArgumentsNode
+    flags: ArgumentsNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ArgumentsNodeFlags
       - name: arguments
         type: node[]
+        kind: non-void expression
     comment: |
       Represents a set of arguments to a method or a keyword.
 
           return foo, bar, baz
                  ^^^^^^^^^^^^^
   - name: ArrayNode
+    flags: ArrayNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ArrayNodeFlags
       - name: elements
         type: node[]
+        kind: non-void expression
         comment: Represent the list of zero or more [non-void expressions](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression) within the array.
       - name: opening_loc
         type: location?
@@ -899,12 +971,18 @@ nodes:
     fields:
       - name: constant
         type: node?
+        kind:
+          - ConstantReadNode
+          - ConstantPathNode
       - name: requireds
         type: node[]
+        kind: pattern expression
       - name: rest
         type: node?
+        kind: pattern expression
       - name: posts
         type: node[]
+        kind: pattern expression
       - name: opening_loc
         type: location?
       - name: closing_loc
@@ -930,6 +1008,7 @@ nodes:
     fields:
       - name: key
         type: node
+        kind: non-void expression
         comment: |
           The key of the association. This can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -943,6 +1022,7 @@ nodes:
                 ^^^^^^^^^^
       - name: value
         type: node
+        kind: non-void expression
         comment: |
           The value of the association, if present. This can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -967,6 +1047,7 @@ nodes:
     fields:
       - name: value
         type: node?
+        kind: non-void expression
         comment: |
           The value to be splatted, if present. Will be missing when keyword rest argument forwarding is used.
 
@@ -1029,18 +1110,17 @@ nodes:
     fields:
       - name: expression
         type: node?
+        kind: non-void expression
       - name: operator_loc
         type: location
     comment: |
-      Represents block method arguments.
+      Represents a block argument using `&`.
 
           bar(&args)
           ^^^^^^^^^^
   - name: BlockLocalVariableNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant
     comment: |
@@ -1054,8 +1134,15 @@ nodes:
         type: constant[]
       - name: parameters
         type: node?
+        kind:
+          - BlockParametersNode
+          - NumberedParametersNode
+          - ItParametersNode
       - name: body
         type: node?
+        kind:
+          - StatementsNode
+          - BeginNode
       - name: opening_loc
         type: location
       - name: closing_loc
@@ -1066,10 +1153,8 @@ nodes:
           [1, 2, 3].each { |i| puts x }
                          ^^^^^^^^^^^^^^
   - name: BlockParameterNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant?
       - name: name_loc
@@ -1077,7 +1162,7 @@ nodes:
       - name: operator_loc
         type: location
     comment: |
-      Represents a block parameter to a method, block, or lambda definition.
+      Represents a block parameter of a method, block, or lambda definition.
 
           def a(&b)
                 ^^
@@ -1126,12 +1211,11 @@ nodes:
           break foo
           ^^^^^^^^^
   - name: CallAndWriteNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node?
+        kind: non-void expression
       - name: call_operator_loc
         type: location?
       - name: message_loc
@@ -1144,18 +1228,18 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `&&=` operator on a call.
 
           foo.bar &&= value
           ^^^^^^^^^^^^^^^^^
   - name: CallNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node?
+        kind: non-void expression
         comment: |
           The object that the method is being called on. This can be either `nil` or any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -1182,6 +1266,9 @@ nodes:
         type: location?
       - name: block
         type: node?
+        kind:
+          - BlockNode
+          - BlockArgumentNode
     comment: |
       Represents a method call, in all of the various forms that can take.
 
@@ -1203,12 +1290,11 @@ nodes:
           foo&.bar
           ^^^^^^^^
   - name: CallOperatorWriteNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node?
+        kind: non-void expression
       - name: call_operator_loc
         type: location?
       - name: message_loc
@@ -1223,18 +1309,18 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of an assignment operator on a call.
 
           foo.bar += baz
           ^^^^^^^^^^^^^^
   - name: CallOrWriteNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node?
+        kind: non-void expression
       - name: call_operator_loc
         type: location?
       - name: message_loc
@@ -1247,18 +1333,18 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `||=` operator on a call.
 
           foo.bar ||= value
           ^^^^^^^^^^^^^^^^^
   - name: CallTargetNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node
+        kind: non-void expression
       - name: call_operator_loc
         type: location
       - name: name
@@ -1282,8 +1368,10 @@ nodes:
     fields:
       - name: value
         type: node
+        kind: pattern expression
       - name: target
         type: node
+        kind: LocalVariableTargetNode
       - name: operator_loc
         type: location
     comment: |
@@ -1295,9 +1383,11 @@ nodes:
     fields:
       - name: predicate
         type: node?
+        kind: non-void expression
       - name: conditions
         type: node[]
-      - name: consequent
+        kind: InNode
+      - name: else_clause
         type: node?
         kind: ElseNode
       - name: case_keyword_loc
@@ -1315,9 +1405,11 @@ nodes:
     fields:
       - name: predicate
         type: node?
+        kind: non-void expression
       - name: conditions
         type: node[]
-      - name: consequent
+        kind: WhenNode
+      - name: else_clause
         type: node?
         kind: ElseNode
       - name: case_keyword_loc
@@ -1339,12 +1431,20 @@ nodes:
         type: location
       - name: constant_path
         type: node
+        kind:
+          - ConstantReadNode
+          - ConstantPathNode
+          - on error: CallNode # class 0.X end
       - name: inheritance_operator_loc
         type: location?
       - name: superclass
         type: node?
+        kind: non-void expression
       - name: body
         type: node?
+        kind:
+          - StatementsNode
+          - BeginNode
       - name: end_keyword_loc
         type: location
       - name: name
@@ -1364,6 +1464,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `&&=` operator for assignment to a class variable.
 
@@ -1379,6 +1480,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: binary_operator
         type: constant
     comment: |
@@ -1396,6 +1498,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `||=` operator for assignment to a class variable.
 
@@ -1444,6 +1547,7 @@ nodes:
               ^^^^^
       - name: value
         type: node
+        kind: non-void expression
         comment: |
           The value to write to the class variable. This can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -1474,6 +1578,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `&&=` operator for assignment to a constant.
 
@@ -1489,6 +1594,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: binary_operator
         type: constant
     comment: |
@@ -1506,6 +1612,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `||=` operator for assignment to a constant.
 
@@ -1520,6 +1627,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `&&=` operator for assignment to a constant path.
 
@@ -1529,6 +1637,7 @@ nodes:
     fields:
       - name: parent
         type: node?
+        kind: non-void expression
         comment: |
           The left-hand node of the path, if present. It can be `nil` or any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression). It will be `nil` when the constant lookup is at the root of the module tree.
 
@@ -1577,6 +1686,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: binary_operator
         type: constant
     comment: |
@@ -1593,6 +1703,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `||=` operator for assignment to a constant path.
 
@@ -1602,6 +1713,7 @@ nodes:
     fields:
       - name: parent
         type: node?
+        kind: non-void expression
       - name: name
         type: constant?
       - name: delimiter_loc
@@ -1635,6 +1747,7 @@ nodes:
                     ^
       - name: value
         type: node
+        kind: non-void expression
         comment: |
           The value to write to the constant path. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -1694,6 +1807,7 @@ nodes:
               ^^^
       - name: value
         type: node
+        kind: non-void expression
         comment: |
           The value to write to the constant. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -1722,11 +1836,15 @@ nodes:
         type: location
       - name: receiver
         type: node?
+        kind: non-void expression
       - name: parameters
         type: node?
         kind: ParametersNode
       - name: body
         type: node?
+        kind:
+          - StatementsNode
+          - BeginNode
       - name: locals
         type: constant[]
       - name: def_keyword_loc
@@ -1753,6 +1871,7 @@ nodes:
         type: location?
       - name: value
         type: node
+        kind: Node # More than non-void expression as defined?(return) is allowed, yet defined?(BEGIN{}) is SyntaxError
       - name: rparen_loc
         type: location?
       - name: keyword_loc
@@ -1796,6 +1915,12 @@ nodes:
         type: location
       - name: variable
         type: node
+        kind:
+          - InstanceVariableReadNode
+          - ClassVariableReadNode
+          - GlobalVariableReadNode
+          - BackReferenceReadNode
+          - NumberedReferenceReadNode
     comment: |
       Represents an interpolated variable.
 
@@ -1829,12 +1954,20 @@ nodes:
     fields:
       - name: constant
         type: node?
+        kind:
+          - ConstantReadNode
+          - ConstantPathNode
       - name: left
         type: node
+        kind: SplatNode
       - name: requireds
         type: node[]
+        kind: pattern expression
       - name: right
         type: node
+        kind:
+          - SplatNode
+          - on error: MissingNode
       - name: opening_loc
         type: location?
       - name: closing_loc
@@ -1851,14 +1984,14 @@ nodes:
           foo in Foo(*bar, baz, *qux)
                  ^^^^^^^^^^^^^^^^^^^^
   - name: FlipFlopNode
+    flags: RangeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: RangeFlags
       - name: left
         type: node?
+        kind: non-void expression
       - name: right
         type: node?
+        kind: non-void expression
       - name: operator_loc
         type: location
     comment: |
@@ -1880,19 +2013,70 @@ nodes:
     fields:
       - name: index
         type: node
+        kind:
+          - LocalVariableTargetNode
+          - InstanceVariableTargetNode
+          - ClassVariableTargetNode
+          - GlobalVariableTargetNode
+          - ConstantTargetNode
+          - ConstantPathTargetNode
+          - CallTargetNode
+          - IndexTargetNode
+          - MultiTargetNode
+          - on error: BackReferenceReadNode # for $& in a end
+          - on error: NumberedReferenceReadNode # for $1 in a end
+          - on error: MissingNode # for in 1..10; end
+        comment: |
+          The index expression for `for` loops.
+
+              for i in a end
+                  ^
       - name: collection
         type: node
+        kind: non-void expression
+        comment: |
+          The collection to iterate over.
+
+              for i in a end
+                       ^
       - name: statements
         type: node?
         kind: StatementsNode
+        comment: |
+          Represents the body of statements to execute for each iteration of the loop.
+
+              for i in a
+                foo(i)
+                ^^^^^^
+              end
       - name: for_keyword_loc
         type: location
+        comment: |
+          The location of the `for` keyword.
+
+              for i in a end
+              ^^^
       - name: in_keyword_loc
         type: location
+        comment: |
+          The location of the `in` keyword.
+
+              for i in a end
+                    ^^
       - name: do_keyword_loc
         type: location?
+        comment: |
+          The location of the `do` keyword, if present.
+
+              for i in a do end
+                         ^^
       - name: end_keyword_loc
         type: location
+        comment: |
+          The location of the `end` keyword.
+
+              for i in a end
+                         ^^^
     comment: |
       Represents the use of the `for` keyword.
 
@@ -1933,6 +2117,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `&&=` operator for assignment to a global variable.
 
@@ -1948,6 +2133,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: binary_operator
         type: constant
     comment: |
@@ -1965,6 +2151,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `||=` operator for assignment to a global variable.
 
@@ -2013,6 +2200,7 @@ nodes:
               ^^^^
       - name: value
         type: node
+        kind: non-void expression
         comment: |
           The value to write to the global variable. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -2071,6 +2259,9 @@ nodes:
     fields:
       - name: constant
         type: node?
+        kind:
+          - ConstantReadNode
+          - ConstantPathNode
       - name: elements
         type: node[]
         kind: AssocNode
@@ -2104,6 +2295,7 @@ nodes:
           The `if_keyword_loc` field will be `nil` when the `IfNode` represents a ternary expression.
       - name: predicate
         type: node
+        kind: non-void expression
         comment: |
           The node for the condition the `IfNode` is testing.
 
@@ -2139,8 +2331,11 @@ nodes:
                 baz
                 ^^^
               end
-      - name: consequent
+      - name: subsequent
         type: node?
+        kind:
+          - ElseNode
+          - IfNode
         comment: |
           Represents an `ElseNode` or an `IfNode` when there is an `else` or an `elsif` in the `if` statement.
 
@@ -2193,6 +2388,11 @@ nodes:
     fields:
       - name: value
         type: node
+        kind:
+          - LocalVariableReadNode
+          - CallNode
+          - ConstantReadNode
+          - LocalVariableTargetNode
     comment: |
       Represents a node that is implicitly being added to the tree but doesn't correspond directly to a node in the source.
 
@@ -2223,6 +2423,7 @@ nodes:
     fields:
       - name: pattern
         type: node
+        kind: pattern expression
       - name: statements
         type: node?
         kind: StatementsNode
@@ -2236,12 +2437,11 @@ nodes:
           case a; in b then c end
                   ^^^^^^^^^^^
   - name: IndexAndWriteNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node?
+        kind: non-void expression
       - name: call_operator_loc
         type: location?
       - name: opening_loc
@@ -2253,22 +2453,23 @@ nodes:
         type: location
       - name: block
         type: node?
+        kind: BlockArgumentNode # foo[&b] &&= value, only valid on Ruby < 3.4
       - name: operator_loc
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `&&=` operator on a call to the `[]` method.
 
           foo.bar[baz] &&= value
           ^^^^^^^^^^^^^^^^^^^^^^
   - name: IndexOperatorWriteNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node?
+        kind: non-void expression
       - name: call_operator_loc
         type: location?
       - name: opening_loc
@@ -2280,24 +2481,25 @@ nodes:
         type: location
       - name: block
         type: node?
+        kind: BlockArgumentNode # foo[&b] += value, only valid on Ruby < 3.4
       - name: binary_operator
         type: constant
       - name: binary_operator_loc
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of an assignment operator on a call to `[]`.
 
           foo.bar[baz] += value
           ^^^^^^^^^^^^^^^^^^^^^
   - name: IndexOrWriteNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node?
+        kind: non-void expression
       - name: call_operator_loc
         type: location?
       - name: opening_loc
@@ -2309,22 +2511,23 @@ nodes:
         type: location
       - name: block
         type: node?
+        kind: BlockArgumentNode # foo[&b] ||= value, only valid on Ruby < 3.4
       - name: operator_loc
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `||=` operator on a call to `[]`.
 
           foo.bar[baz] ||= value
           ^^^^^^^^^^^^^^^^^^^^^^
   - name: IndexTargetNode
+    flags: CallNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: CallNodeFlags
       - name: receiver
         type: node
+        kind: non-void expression
       - name: opening_loc
         type: location
       - name: arguments
@@ -2334,6 +2537,7 @@ nodes:
         type: location
       - name: block
         type: node?
+        kind: BlockArgumentNode # foo[&b], = 1, only valid on Ruby < 3.4
     comment: |
       Represents assigning to an index.
 
@@ -2357,6 +2561,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `&&=` operator for assignment to an instance variable.
 
@@ -2372,6 +2577,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: binary_operator
         type: constant
     comment: |
@@ -2389,6 +2595,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents the use of the `||=` operator for assignment to an instance variable.
 
@@ -2437,6 +2644,7 @@ nodes:
               ^^^
       - name: value
         type: node
+        kind: non-void expression
         comment: |
           The value to write to the instance variable. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -2458,10 +2666,8 @@ nodes:
           @foo = 1
           ^^^^^^^^
   - name: IntegerNode
+    flags: IntegerBaseFlags
     fields:
-      - name: flags
-        type: flags
-        kind: IntegerBaseFlags
       - name: value
         type: integer
         comment: The value of the integer literal as a number.
@@ -2471,10 +2677,8 @@ nodes:
           1
           ^
   - name: InterpolatedMatchLastLineNode
+    flags: RegularExpressionFlags
     fields:
-      - name: flags
-        type: flags
-        kind: RegularExpressionFlags
       - name: opening_loc
         type: location
       - name: parts
@@ -2492,10 +2696,8 @@ nodes:
           if /foo #{bar} baz/ then end
              ^^^^^^^^^^^^^^^^
   - name: InterpolatedRegularExpressionNode
+    flags: RegularExpressionFlags
     fields:
-      - name: flags
-        type: flags
-        kind: RegularExpressionFlags
       - name: opening_loc
         type: location
       - name: parts
@@ -2513,10 +2715,8 @@ nodes:
           /foo #{bar} baz/
           ^^^^^^^^^^^^^^^^
   - name: InterpolatedStringNode
+    flags: InterpolatedStringNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: InterpolatedStringNodeFlags
       - name: opening_loc
         type: location?
       - name: parts
@@ -2583,10 +2783,8 @@ nodes:
           -> { it + it }
           ^^^^^^^^^^^^^^
   - name: KeywordHashNode
+    flags: KeywordHashNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: KeywordHashNodeFlags
       - name: elements
         type: node[]
         kind:
@@ -2598,10 +2796,8 @@ nodes:
           foo(a: b)
               ^^^^
   - name: KeywordRestParameterNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant?
       - name: name_loc
@@ -2626,8 +2822,15 @@ nodes:
         type: location
       - name: parameters
         type: node?
+        kind:
+          - BlockParametersNode
+          - NumberedParametersNode
+          - ItParametersNode
       - name: body
         type: node?
+        kind:
+          - StatementsNode
+          - BeginNode
     comment: |
       Represents using a lambda literal (not the lambda method call).
 
@@ -2641,6 +2844,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: name
         type: constant
       - name: depth
@@ -2658,6 +2862,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: name
         type: constant
       - name: binary_operator
@@ -2677,6 +2882,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
       - name: name
         type: constant
       - name: depth
@@ -2756,6 +2962,7 @@ nodes:
               ^^^
       - name: value
         type: node
+        kind: non-void expression
         comment: |
           The value to write to the local variable. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -2781,10 +2988,8 @@ nodes:
           foo = 1
           ^^^^^^^
   - name: MatchLastLineNode
+    flags: RegularExpressionFlags
     fields:
-      - name: flags
-        type: flags
-        kind: RegularExpressionFlags
       - name: opening_loc
         type: location
       - name: content_loc
@@ -2802,8 +3007,10 @@ nodes:
     fields:
       - name: value
         type: node
+        kind: non-void expression
       - name: pattern
         type: node
+        kind: pattern expression
       - name: operator_loc
         type: location
     comment: |
@@ -2815,8 +3022,10 @@ nodes:
     fields:
       - name: value
         type: node
+        kind: non-void expression
       - name: pattern
         type: node
+        kind: pattern expression
       - name: operator_loc
         type: location
     comment: |
@@ -2848,8 +3057,15 @@ nodes:
         type: location
       - name: constant_path
         type: node
+        kind:
+          - ConstantReadNode
+          - ConstantPathNode
+          - on error: MissingNode # module Parent module end
       - name: body
         type: node?
+        kind:
+          - StatementsNode
+          - BeginNode
       - name: end_keyword_loc
         type: location
       - name: name
@@ -2873,11 +3089,39 @@ nodes:
           - CallTargetNode
           - IndexTargetNode
           - MultiTargetNode
-          - RequiredParameterNode
-          - BackReferenceReadNode # On parsing error of `$',`
-          - NumberedReferenceReadNode # On parsing error of `$1,`
+          - RequiredParameterNode # def m((a,b)); end
+          - on error: BackReferenceReadNode # a, (b, $&) = z
+          - on error: NumberedReferenceReadNode # a, (b, $1) = z
+        comment: |
+          Represents the targets expressions before a splat node.
+
+              a, (b, c, *) = 1, 2, 3, 4, 5
+                  ^^^^
+
+          The splat node can be absent, in that case all target expressions are in the left field.
+
+              a, (b, c) = 1, 2, 3, 4, 5
+                  ^^^^
       - name: rest
         type: node?
+        kind:
+          - ImplicitRestNode
+          - SplatNode
+        comment: |
+          Represents a splat node in the target expression.
+
+              a, (b, *c) = 1, 2, 3, 4
+                     ^^
+
+          The variable can be empty, this results in a `SplatNode` with a `nil` expression field.
+
+              a, (b, *) = 1, 2, 3, 4
+                     ^
+
+          If the `*` is omitted, this field will contain an `ImplicitRestNode`
+
+              a, (b,) = 1, 2, 3, 4
+                   ^
       - name: rights
         type: node[]
         kind:
@@ -2890,17 +3134,38 @@ nodes:
           - CallTargetNode
           - IndexTargetNode
           - MultiTargetNode
-          - RequiredParameterNode
-          - BackReferenceReadNode # On parsing error of `*,$'`
+          - RequiredParameterNode # def m((*,b)); end
+          - on error: BackReferenceReadNode # a, (*, $&) = z
+          - on error: NumberedReferenceReadNode # a, (*, $1) = z
+        comment: |
+          Represents the targets expressions after a splat node.
+
+              a, (*, b, c) = 1, 2, 3, 4, 5
+                     ^^^^
       - name: lparen_loc
         type: location?
+        comment: |
+          The location of the opening parenthesis.
+
+              a, (b, c) = 1, 2, 3
+                 ^
       - name: rparen_loc
         type: location?
+        comment: |
+          The location of the closing parenthesis.
+
+              a, (b, c) = 1, 2, 3
+                      ^
     comment: |
       Represents a multi-target expression.
 
           a, (b, c) = 1, 2, 3
              ^^^^^^
+
+      This can be a part of `MultiWriteNode` as above, or the target of a `for` loop
+
+          for a, b in [[1, 2], [3, 4]]
+              ^^^^
   - name: MultiWriteNode
     fields:
       - name: lefts
@@ -2915,8 +3180,38 @@ nodes:
           - CallTargetNode
           - IndexTargetNode
           - MultiTargetNode
+          - on error: BackReferenceReadNode # $&, = z
+          - on error: NumberedReferenceReadNode # $1, = z
+        comment: |
+          Represents the targets expressions before a splat node.
+
+              a, b, * = 1, 2, 3, 4, 5
+              ^^^^
+
+          The splat node can be absent, in that case all target expressions are in the left field.
+
+              a, b, c = 1, 2, 3, 4, 5
+              ^^^^^^^
       - name: rest
         type: node?
+        kind:
+          - ImplicitRestNode
+          - SplatNode
+        comment: |
+          Represents a splat node in the target expression.
+
+              a, b, *c = 1, 2, 3, 4
+                    ^^
+
+          The variable can be empty, this results in a `SplatNode` with a `nil` expression field.
+
+              a, b, * = 1, 2, 3, 4
+                    ^
+
+          If the `*` is omitted, this field will contain an `ImplicitRestNode`
+
+              a, b, = 1, 2, 3, 4
+                  ^
       - name: rights
         type: node[]
         kind:
@@ -2929,14 +3224,42 @@ nodes:
           - CallTargetNode
           - IndexTargetNode
           - MultiTargetNode
+          - on error: BackReferenceReadNode # *, $& = z
+          - on error: NumberedReferenceReadNode # *, $1 = z
+        comment: |
+          Represents the targets expressions after a splat node.
+
+              a, *, b, c = 1, 2, 3, 4, 5
+                    ^^^^
       - name: lparen_loc
         type: location?
+        comment: |
+          The location of the opening parenthesis.
+
+              (a, b, c) = 1, 2, 3
+              ^
       - name: rparen_loc
         type: location?
+        comment: |
+          The location of the closing parenthesis.
+
+              (a, b, c) = 1, 2, 3
+                      ^
       - name: operator_loc
         type: location
+        comment: |
+          The location of the operator.
+
+              a, b, c = 1, 2, 3
+                      ^
       - name: value
         type: node
+        kind: non-void expression
+        comment: |
+          The value to write to the targets. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
+
+              a, b, c = 1, 2, 3
+                        ^^^^^^^
     comment: |
       Represents a write to a multi-target expression.
 
@@ -2999,16 +3322,15 @@ nodes:
           $1
           ^^
   - name: OptionalKeywordParameterNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant
       - name: name_loc
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents an optional keyword parameter to a method, block, or lambda definition.
 
@@ -3016,10 +3338,8 @@ nodes:
                 ^^^^
           end
   - name: OptionalParameterNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant
       - name: name_loc
@@ -3028,6 +3348,7 @@ nodes:
         type: location
       - name: value
         type: node
+        kind: non-void expression
     comment: |
       Represents an optional parameter to a method, block, or lambda definition.
 
@@ -3038,6 +3359,7 @@ nodes:
     fields:
       - name: left
         type: node
+        kind: non-void expression
         comment: |
           Represents the left side of the expression. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -3048,8 +3370,9 @@ nodes:
               ^
       - name: right
         type: node
+        kind: Node
         comment: |
-          Represents the right side of the expression. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
+          Represents the right side of the expression.
 
               left || right
                       ^^^^^
@@ -3089,10 +3412,10 @@ nodes:
           - RequiredParameterNode
           - MultiTargetNode
           # On parsing error of `f(**kwargs, ...)` or `f(**nil, ...)`, the keyword_rest value is moved here:
-          - KeywordRestParameterNode
-          - NoKeywordsParameterNode
+          - on error: KeywordRestParameterNode
+          - on error: NoKeywordsParameterNode
           # On parsing error of `f(..., ...)`, the first forwarding parameter is moved here:
-          - ForwardingParameterNode
+          - on error: ForwardingParameterNode
       - name: keywords
         type: node[]
         kind:
@@ -3117,6 +3440,7 @@ nodes:
     fields:
       - name: body
         type: node?
+        kind: non-void expression # Usually a StatementsNode but not always e.g. `1 in (..10)`
       - name: opening_loc
         type: location
       - name: closing_loc
@@ -3131,6 +3455,7 @@ nodes:
     fields:
       - name: expression
         type: node
+        kind: non-void expression
       - name: operator_loc
         type: location
       - name: lparen_loc
@@ -3146,6 +3471,15 @@ nodes:
     fields:
       - name: variable
         type: node
+        kind:
+          - LocalVariableReadNode
+          - InstanceVariableReadNode
+          - ClassVariableReadNode
+          - GlobalVariableReadNode # foo in ^$a
+          - BackReferenceReadNode # foo in ^$&
+          - NumberedReferenceReadNode # foo in ^$1
+          - ItLocalVariableReadNode # proc { 1 in ^it }
+          - on error: MissingNode # foo in ^Bar
       - name: operator_loc
         type: location
     comment: |
@@ -3194,12 +3528,11 @@ nodes:
         kind: StatementsNode
     comment: The top level node of any parse tree.
   - name: RangeNode
+    flags: RangeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: RangeFlags
       - name: left
         type: node?
+        kind: non-void expression
         comment: |
           The left-hand side of the range, if present. It can be either `nil` or any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -3210,6 +3543,7 @@ nodes:
               ^^^^^
       - name: right
         type: node?
+        kind: non-void expression
         comment: |
           The right-hand side of the range, if present. It can be either `nil` or any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -3232,10 +3566,8 @@ nodes:
           c if a =~ /left/ ... b =~ /right/
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   - name: RationalNode
+    flags: IntegerBaseFlags
     fields:
-      - name: flags
-        type: flags
-        kind: IntegerBaseFlags
       - name: numerator
         type: integer
         comment: |
@@ -3260,10 +3592,8 @@ nodes:
           redo
           ^^^^
   - name: RegularExpressionNode
+    flags: RegularExpressionFlags
     fields:
-      - name: flags
-        type: flags
-        kind: RegularExpressionFlags
       - name: opening_loc
         type: location
       - name: content_loc
@@ -3278,10 +3608,8 @@ nodes:
           /foo/i
           ^^^^^^
   - name: RequiredKeywordParameterNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant
       - name: name_loc
@@ -3293,10 +3621,8 @@ nodes:
                 ^^
           end
   - name: RequiredParameterNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant
     comment: |
@@ -3309,10 +3635,12 @@ nodes:
     fields:
       - name: expression
         type: node
+        kind: Node
       - name: keyword_loc
         type: location
       - name: rescue_expression
         type: node
+        kind: Node
     newline: expression
     comment: |
       Represents an expression modified with a rescue.
@@ -3325,14 +3653,27 @@ nodes:
         type: location
       - name: exceptions
         type: node[]
+        kind: non-void expression
       - name: operator_loc
         type: location?
       - name: reference
         type: node?
+        kind:
+          - LocalVariableTargetNode
+          - InstanceVariableTargetNode
+          - ClassVariableTargetNode
+          - GlobalVariableTargetNode
+          - ConstantTargetNode
+          - ConstantPathTargetNode
+          - CallTargetNode
+          - IndexTargetNode
+          - on error: BackReferenceReadNode # => begin; rescue => $&; end
+          - on error: NumberedReferenceReadNode # => begin; rescue => $1; end
+          - on error: MissingNode # begin; rescue =>; end
       - name: statements
         type: node?
         kind: StatementsNode
-      - name: consequent
+      - name: subsequent
         type: node?
         kind: RescueNode
     comment: |
@@ -3344,12 +3685,10 @@ nodes:
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           end
 
-      `Foo, *splat, Bar` are in the `exceptions` field. `ex` is in the `exception` field.
+      `Foo, *splat, Bar` are in the `exceptions` field. `ex` is in the `reference` field.
   - name: RestParameterNode
+    flags: ParameterFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ParameterFlags
       - name: name
         type: constant?
       - name: name_loc
@@ -3370,9 +3709,6 @@ nodes:
           ^^^^^
   - name: ReturnNode
     fields:
-      - name: flags
-        type: flags
-        kind: ReturnNodeFlags
       - name: keyword_loc
         type: location
       - name: arguments
@@ -3390,10 +3726,8 @@ nodes:
           self
           ^^^^
   - name: ShareableConstantNode
+    flags: ShareableConstantNodeFlags
     fields:
-      - name: flags
-        type: flags
-        kind: ShareableConstantNodeFlags
       - name: write
         type: node
         kind:
@@ -3422,8 +3756,12 @@ nodes:
         type: location
       - name: expression
         type: node
+        kind: non-void expression
       - name: body
         type: node?
+        kind:
+          - StatementsNode
+          - BeginNode
       - name: end_keyword_loc
         type: location
     comment: |
@@ -3438,10 +3776,8 @@ nodes:
           __ENCODING__
           ^^^^^^^^^^^^
   - name: SourceFileNode
+    flags: StringFlags
     fields:
-      - name: flags
-        type: flags
-        kind: StringFlags
       - name: filepath
         type: string
         comment: Represents the file path being parsed. This corresponds directly to the `filepath` option given to the various `Prism::parse*` APIs.
@@ -3462,6 +3798,7 @@ nodes:
         type: location
       - name: expression
         type: node?
+        kind: non-void expression
     comment: |
       Represents the use of the splat operator.
 
@@ -3471,16 +3808,15 @@ nodes:
     fields:
       - name: body
         type: node[]
+        kind: Node
     comment: |
       Represents a set of statements contained within some scope.
 
           foo; bar; baz
           ^^^^^^^^^^^^^
   - name: StringNode
+    flags: StringFlags
     fields:
-      - name: flags
-        type: flags
-        kind: StringFlags
       - name: opening_loc
         type: location?
       - name: content_loc
@@ -3513,6 +3849,9 @@ nodes:
         type: location?
       - name: block
         type: node?
+        kind:
+          - BlockNode
+          - BlockArgumentNode
     comment: |
       Represents the use of the `super` keyword with parentheses or arguments.
 
@@ -3522,10 +3861,8 @@ nodes:
           super foo, bar
           ^^^^^^^^^^^^^^
   - name: SymbolNode
+    flags: SymbolFlags
     fields:
-      - name: flags
-        type: flags
-        kind: SymbolFlags
       - name: opening_loc
         type: location?
       - name: value_loc
@@ -3576,6 +3913,7 @@ nodes:
                   ^^^^^^
       - name: predicate
         type: node
+        kind: non-void expression
         comment: |
           The condition to be evaluated for the unless expression. It can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
@@ -3586,7 +3924,7 @@ nodes:
                          ^^^^
       - name: then_keyword_loc
         type: location?
-        comment:
+        comment: |
           The location of the `then` keyword, if present.
 
               unless cond then bar end
@@ -3600,7 +3938,7 @@ nodes:
 
               unless cond then bar end
                                ^^^
-      - name: consequent
+      - name: else_clause
         type: node?
         kind: ElseNode
         comment: |
@@ -3625,16 +3963,15 @@ nodes:
           unless foo then bar end
           ^^^^^^^^^^^^^^^^^^^^^^^
   - name: UntilNode
+    flags: LoopFlags
     fields:
-      - name: flags
-        type: flags
-        kind: LoopFlags
       - name: keyword_loc
         type: location
       - name: closing_loc
         type: location?
       - name: predicate
         type: node
+        kind: non-void expression
       - name: statements
         type: node?
         kind: StatementsNode
@@ -3653,6 +3990,7 @@ nodes:
         type: location
       - name: conditions
         type: node[]
+        kind: non-void expression
       - name: then_keyword_loc
         type: location?
       - name: statements
@@ -3666,16 +4004,15 @@ nodes:
           ^^^^^^^^^
           end
   - name: WhileNode
+    flags: LoopFlags
     fields:
-      - name: flags
-        type: flags
-        kind: LoopFlags
       - name: keyword_loc
         type: location
       - name: closing_loc
         type: location?
       - name: predicate
         type: node
+        kind: non-void expression
       - name: statements
         type: node?
         kind: StatementsNode
@@ -3689,10 +4026,8 @@ nodes:
           while foo do bar end
           ^^^^^^^^^^^^^^^^^^^^
   - name: XStringNode
+    flags: EncodingFlags
     fields:
-      - name: flags
-        type: flags
-        kind: EncodingFlags
       - name: opening_loc
         type: location
       - name: content_loc

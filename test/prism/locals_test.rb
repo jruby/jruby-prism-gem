@@ -9,6 +9,15 @@
 # to test on the most recent versions.
 return if !defined?(RubyVM::InstructionSequence) || RUBY_VERSION < "3.4.0"
 
+# If we're on Ruby 3.4.0 and the default parser is Prism, then there is no point
+# in comparing the locals because they will be the same.
+return if RubyVM::InstructionSequence.compile("").to_a[4][:parser] == :prism
+
+# In Ruby 3.4.0, the local table for method forwarding changed. But 3.4.0 can
+# refer to the dev version, so while 3.4.0 still isn't released, we need to
+# check if we have a high enough revision.
+return if RubyVM::InstructionSequence.compile("def foo(...); end").to_a[13][2][2][10].length != 1
+
 # Omit tests if running on a 32-bit machine because there is a bug with how
 # Ruby is handling large ISeqs on 32-bit machines
 return if RUBY_PLATFORM =~ /i686/
@@ -17,14 +26,14 @@ require_relative "test_helper"
 
 module Prism
   class LocalsTest < TestCase
-    base = File.join(__dir__, "fixtures")
-    Dir["**/*.txt", base: base].each do |relative|
+    except = [
       # Skip this fixture because it has a different number of locals because
       # CRuby is eliminating dead code.
-      next if relative == "whitequark/ruby_bug_10653.txt"
+      "whitequark/ruby_bug_10653.txt"
+    ]
 
-      filepath = File.join(base, relative)
-      define_method("test_#{relative}") { assert_locals(filepath) }
+    Fixture.each(except: except) do |fixture|
+      define_method(fixture.test_name) { assert_locals(fixture) }
     end
 
     def setup
@@ -38,21 +47,13 @@ module Prism
 
     private
 
-    def assert_locals(filepath)
-      source = File.read(filepath)
+    def assert_locals(fixture)
+      source = fixture.read
 
       expected = cruby_locals(source)
       actual = prism_locals(source)
 
       assert_equal(expected, actual)
-    end
-
-    def ignore_warnings
-      previous_verbosity = $VERBOSE
-      $VERBOSE = nil
-      yield
-    ensure
-      $VERBOSE = previous_verbosity
     end
 
     # A wrapper around a RubyVM::InstructionSequence that provides a more
@@ -104,35 +105,29 @@ module Prism
     # For the given source, compiles with CRuby and returns a list of all of the
     # sets of local variables that were encountered.
     def cruby_locals(source)
-      verbose, $VERBOSE = $VERBOSE, nil
+      locals = [] #: Array[Array[Symbol | Integer]]
+      stack = [ISeq.new(ignore_warnings { RubyVM::InstructionSequence.compile(source) }.to_a)]
 
-      begin
-        locals = [] #: Array[Array[Symbol | Integer]]
-        stack = [ISeq.new(RubyVM::InstructionSequence.compile(source).to_a)]
-
-        while (iseq = stack.pop)
-          names = [*iseq.local_table]
-          names.map!.with_index do |name, index|
-            # When an anonymous local variable is present in the iseq's local
-            # table, it is represented as the stack offset from the top.
-            # However, when these are dumped to binary and read back in, they
-            # are replaced with the symbol :#arg_rest. To consistently handle
-            # this, we replace them here with their index.
-            if name == :"#arg_rest"
-              names.length - index + 1
-            else
-              name
-            end
+      while (iseq = stack.pop)
+        names = [*iseq.local_table]
+        names.map!.with_index do |name, index|
+          # When an anonymous local variable is present in the iseq's local
+          # table, it is represented as the stack offset from the top.
+          # However, when these are dumped to binary and read back in, they
+          # are replaced with the symbol :#arg_rest. To consistently handle
+          # this, we replace them here with their index.
+          if name == :"#arg_rest"
+            names.length - index + 1
+          else
+            name
           end
-
-          locals << names
-          iseq.each_child { |child| stack << child }
         end
 
-        locals
-      ensure
-        $VERBOSE = verbose
+        locals << names
+        iseq.each_child { |child| stack << child }
       end
+
+      locals
     end
 
     # For the given source, parses with prism and returns a list of all of the
@@ -183,7 +178,11 @@ module Prism
             sorted << AnonymousLocal if params.keywords.any?
 
             if params.keyword_rest.is_a?(ForwardingParameterNode)
-              sorted.push(:*, :**, :&, :"...")
+              if sorted.length == 0
+                sorted.push(:"...")
+              else
+                sorted.push(:*, :**, :&, :"...")
+              end
             elsif params.keyword_rest.is_a?(KeywordRestParameterNode)
               sorted << (params.keyword_rest.name || :**)
             end

@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# typed: false
+# typed: ignore
 
 require "erb"
 require "fileutils"
@@ -8,10 +8,13 @@ require "yaml"
 module Prism
   module Template
     SERIALIZE_ONLY_SEMANTICS_FIELDS = ENV.fetch("PRISM_SERIALIZE_ONLY_SEMANTICS_FIELDS", false)
+    REMOVE_ON_ERROR_TYPES = SERIALIZE_ONLY_SEMANTICS_FIELDS
     CHECK_FIELD_KIND = ENV.fetch("CHECK_FIELD_KIND", false)
 
     JAVA_BACKEND = ENV["PRISM_JAVA_BACKEND"] || "truffleruby"
     JAVA_STRING_TYPE = JAVA_BACKEND == "jruby" ? "org.jruby.RubySymbol" : "String"
+
+    COMMON_FLAGS_COUNT = 2
 
     class Error
       attr_reader :name
@@ -93,6 +96,11 @@ module Prism
     # Some node fields can be specialized if they point to a specific kind of
     # node and not just a generic node.
     class NodeKindField < Field
+      def initialize(kind:, **options)
+        @kind = kind
+        super(**options)
+      end
+
       def c_type
         if specific_kind
           "pm_#{specific_kind.gsub(/(?<=.)[A-Z]/, "_\\0").downcase}"
@@ -111,18 +119,18 @@ module Prism
 
       def java_cast
         if specific_kind
-          "(Nodes.#{options[:kind]}) "
+          "(Nodes.#{@kind}) "
         else
           ""
         end
       end
 
       def specific_kind
-        options[:kind] unless options[:kind].is_a?(Array)
+        @kind unless @kind.is_a?(Array)
       end
 
       def union_kind
-        options[:kind] if options[:kind].is_a?(Array)
+        @kind if @kind.is_a?(Array)
       end
     end
 
@@ -357,27 +365,6 @@ module Prism
       end
     end
 
-    # This represents a set of flags. It is very similar to the UInt32Field, but
-    # can be directly embedded into the flags field on the struct and provides
-    # convenient methods for checking if a flag is set.
-    class FlagsField < Field
-      def rbs_class
-        "Integer"
-      end
-
-      def rbi_class
-        "Integer"
-      end
-
-      def java_type
-        "short"
-      end
-
-      def kind
-        options.fetch(:kind)
-      end
-    end
-
     # This represents an arbitrarily-sized integer. When it gets to Ruby it will
     # be an Integer.
     class IntegerField < Field
@@ -414,9 +401,9 @@ module Prism
     # in YAML format. It contains information about the name of the node and the
     # various child nodes it contains.
     class NodeType
-      attr_reader :name, :type, :human, :fields, :newline, :comment
+      attr_reader :name, :type, :human, :flags, :fields, :newline, :comment
 
-      def initialize(config)
+      def initialize(config, flags)
         @name = config.fetch("name")
 
         type = @name.gsub(/(?<=.)[A-Z]/, "_\\0")
@@ -430,13 +417,42 @@ module Prism
             options = field.transform_keys(&:to_sym)
             options.delete(:type)
 
-            # If/when we have documentation on every field, this should be changed
-            # to use fetch instead of delete.
+            # If/when we have documentation on every field, this should be
+            # changed to use fetch instead of delete.
             comment = options.delete(:comment)
+
+            if kinds = options[:kind]
+              kinds = [kinds] unless kinds.is_a?(Array)
+              kinds = kinds.map do |kind|
+                case kind
+                when "non-void expression"
+                  # the actual list of types would be way too long
+                  "Node"
+                when "pattern expression"
+                  # the list of all possible types is too long with 37+ different classes
+                  "Node"
+                when Hash
+                  kind = kind.fetch("on error")
+                  REMOVE_ON_ERROR_TYPES ? nil : kind
+                else
+                  kind
+                end
+              end.compact
+              if kinds.size == 1
+                kinds = kinds.first
+                kinds = nil if kinds == "Node"
+              end
+              options[:kind] = kinds
+            else
+              if type < NodeKindField
+                raise "Missing kind in config.yml for field #{@name}##{options.fetch(:name)}"
+              end
+            end
 
             type.new(comment: comment, **options)
           end
 
+        @flags = config.key?("flags") ? flags.fetch(config.fetch("flags")) : nil
         @newline = config.fetch("newline", true)
         @comment = config.fetch("comment")
       end
@@ -474,7 +490,6 @@ module Prism
         when "location?"  then OptionalLocationField
         when "uint8"      then UInt8Field
         when "uint32"     then UInt32Field
-        when "flags"      then FlagsField
         when "integer"    then IntegerField
         when "double"     then DoubleField
         else raise("Unknown field type: #{name.inspect}")
@@ -513,6 +528,10 @@ module Prism
         @human = @name.gsub(/(?<=.)[A-Z]/, "_\\0").downcase
         @values = config.fetch("values").map { |flag| Flag.new(flag) }
         @comment = config.fetch("comment")
+      end
+
+      def self.empty
+        new("name" => "", "values" => [], "comment" => "")
       end
     end
 
@@ -559,13 +578,13 @@ module Prism
             HEADING
           else
             <<~HEADING
-            /******************************************************************************/
+            /*----------------------------------------------------------------------------*/
             /* This file is generated by the templates/template.rb script and should not  */
             /* be modified manually. See                                                  */
             /* #{filepath + " " * (74 - filepath.size) } */
             /* if you are looking to modify the                                           */
             /* template                                                                   */
-            /******************************************************************************/
+            /*----------------------------------------------------------------------------*/
 
             HEADING
           end
@@ -603,13 +622,14 @@ module Prism
         @locals ||=
           begin
             config = YAML.load_file(File.expand_path("../config.yml", __dir__))
+            flags = config.fetch("flags").to_h { |flags| [flags["name"], Flags.new(flags)] }
 
             {
               errors: config.fetch("errors").map { |name| Error.new(name) },
               warnings: config.fetch("warnings").map { |name| Warning.new(name) },
-              nodes: config.fetch("nodes").map { |node| NodeType.new(node) }.sort_by(&:name),
+              nodes: config.fetch("nodes").map { |node| NodeType.new(node, flags) }.sort_by(&:name),
               tokens: config.fetch("tokens").map { |token| Token.new(token) },
-              flags: config.fetch("flags").map { |flags| Flags.new(flags) }
+              flags: flags.values
             }
           end
       end
@@ -640,6 +660,7 @@ module Prism
       "src/prettyprint.c",
       "src/serialize.c",
       "src/token_type.c",
+      "rbi/prism/dsl.rbi",
       "rbi/prism/node.rbi",
       "rbi/prism/visitor.rbi",
       "sig/prism.rbs",

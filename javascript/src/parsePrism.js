@@ -62,6 +62,11 @@ function dumpCommandLineOptions(options) {
   return value;
 }
 
+// Convert a boolean value into a serialized byte.
+function dumpBooleanOption(value) {
+  return (value === undefined || value === false || value === null) ? 0 : 1;
+}
+
 // Converts the given options into a serialized options string.
 function dumpOptions(options) {
   const values = [];
@@ -92,19 +97,28 @@ function dumpOptions(options) {
   }
 
   template.push("C");
-  values.push(options.frozen_string_literal === undefined ? 0 : 1);
+  values.push(dumpBooleanOption(options.frozen_string_literal));
 
   template.push("C");
   values.push(dumpCommandLineOptions(options));
 
   template.push("C");
-  if (!options.version || options.version === "latest" || options.version === "3.4.0") {
+  if (!options.version || options.version === "latest" || options.version.match(/^3\.4(\.\d+)?$/)) {
     values.push(0);
-  } else if (options.version === "3.3.0") {
+  } else if (options.version.match(/^3\.3(\.\d+)?$/)) {
     values.push(1);
   } else {
     throw new Error(`Unsupported version '${options.version}' in compiler options`);
   }
+
+  template.push("C");
+  values.push(options.encoding === false ? 1 : 0);
+
+  template.push("C");
+  values.push(dumpBooleanOption(options.main_script));
+
+  template.push("C");
+  values.push(dumpBooleanOption(options.partial_script));
 
   template.push("L");
   if (options.scopes) {

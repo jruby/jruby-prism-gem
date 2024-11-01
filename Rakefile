@@ -14,7 +14,7 @@ require_relative "templates/template"
 desc "Generate all ERB template based files"
 task templates: Prism::Template::TEMPLATES
 
-make = RUBY_PLATFORM.include?("openbsd") ? "gmake" : "make"
+make = RUBY_PLATFORM.match?(/openbsd|freebsd/) ? "gmake" : "make"
 task(make: :templates) { sh(make) }
 task(make_no_debug: :templates) { sh("#{make} all-no-debug") }
 task(make_minimal: :templates) { sh("#{make} minimal") }
@@ -79,4 +79,18 @@ task :vendor_jar do
   end
 
   FileUtils.mv "jruby-prism-#{Prism::VERSION}.jar", 'jruby-prism.jar'
+end
+
+namespace :build do
+  task :dev_version_set do
+    filepath = File.expand_path("prism.gemspec", __dir__)
+    File.write(filepath, File.read(filepath).sub(/spec\.version = ".+?"/, %Q{spec.version = "9999.9.9"}))
+  end
+
+  task :dev_version_clear do
+    sh "git checkout -- prism.gemspec Gemfile.lock"
+  end
+
+  desc "Build a development version of the gem"
+  task dev: ["build:dev_version_set", "build", "build:dev_version_clear"]
 end
