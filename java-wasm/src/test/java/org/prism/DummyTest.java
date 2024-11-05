@@ -1,5 +1,6 @@
 package org.prism;
 
+import org.prism.PrismModule;
 import com.dylibso.chicory.runtime.ImportValues;
 import com.dylibso.chicory.runtime.Instance;
 import com.dylibso.chicory.wasi.WasiOptions;
@@ -21,6 +22,7 @@ public class DummyTest {
         WasiOptions wasiOpts = WasiOptions.builder().build();
         WasiPreview1 wasi = WasiPreview1.builder().withOptions(wasiOpts).build();
         var wasmPrism = Instance.builder(Parser.parse(DummyTest.class.getResourceAsStream("/prism.wasm")))
+            .withMachineFactory(PrismModule::create)
             .withImportValues(ImportValues.builder().addFunction(wasi.toHostFunctions()).build())
             .build();
         var memory = wasmPrism.memory();

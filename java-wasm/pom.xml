@@ -55,6 +55,22 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.5.2</version>
       </plugin>
+      <plugin>
+        <groupId>com.dylibso.chicory</groupId>
+        <artifactId>aot-maven-plugin-experimental</artifactId>
+        <executions>
+          <execution>
+            <id>prism</id>
+            <goals>
+              <goal>wasm-aot-gen</goal>
+            </goals>
+            <configuration>
+              <name>org.prism.PrismModule</name>
+              <wasmFile>src/main/resources/prism-opt.wasm</wasmFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
