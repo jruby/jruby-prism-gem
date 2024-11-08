@@ -21,8 +21,8 @@ public class DummyTest {
     public void test1() {
         WasiOptions wasiOpts = WasiOptions.builder().build();
         WasiPreview1 wasi = WasiPreview1.builder().withOptions(wasiOpts).build();
-        var wasmPrism = Instance.builder(Parser.parse(DummyTest.class.getResourceAsStream("/prism.wasm")))
-            .withMachineFactory(PrismModule::create)
+        var wasmPrism = Instance.builder(Parser.parse(DummyTest.class.getResourceAsStream("/prism-opt.wasm")))
+            .withMachineFactory(PrismModule::new)
             .withImportValues(ImportValues.builder().addFunction(wasi.toHostFunctions()).build())
             .build();
         var memory = wasmPrism.memory();
@@ -41,10 +41,10 @@ public class DummyTest {
         memory.writeString((int) sourcePointer[0], source);
 
         var packedOptions = ParsingOptions.serialize(
-            new byte[] {},
+            new byte[] {'-', 'e'},
             1,
-            new byte[] {},
-            false,
+            new byte[] {'U', 'T', 'F','-','8'},
+            true,
             EnumSet.noneOf(ParsingOptions.CommandLine.class),
             ParsingOptions.SyntaxVersion.LATEST,
             false,
@@ -80,7 +80,7 @@ public class DummyTest {
     public void test2() {
         WasiOptions wasiOpts = WasiOptions.builder().build();
         WasiPreview1 wasi = WasiPreview1.builder().withOptions(wasiOpts).build();
-        var wasmPrism = Instance.builder(Parser.parse(DummyTest.class.getResourceAsStream("/prism.wasm")))
+        var wasmPrism = Instance.builder(Parser.parse(DummyTest.class.getResourceAsStream("/prism-opt.wasm")))
             .withImportValues(ImportValues.builder().addFunction(wasi.toHostFunctions()).build())
             .build();
         var memory = wasmPrism.memory();
@@ -99,10 +99,10 @@ public class DummyTest {
         memory.writeString((int) sourcePointer[0], source);
 
         var packedOptions = ParsingOptions.serialize(
-            new byte[] {},
+            new byte[] {'-', 'e'},
             1,
-            new byte[] {},
-            false,
+            new byte[] {'U', 'T', 'F','-','8'},
+            true,
             EnumSet.noneOf(ParsingOptions.CommandLine.class),
             ParsingOptions.SyntaxVersion.LATEST,
             false,

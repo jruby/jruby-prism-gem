@@ -14,7 +14,7 @@ CPPFLAGS := -Iinclude $(CPPFLAGS)
 CFLAGS := -g -O2 -std=c99 -Wall -Werror -Wextra -Wpedantic -Wundef -Wconversion -Wno-missing-braces -fPIC -fvisibility=hidden $(CFLAGS)
 CC ?= cc
 AR ?= ar
-WASI_SDK_PATH := /opt/wasi-sdk
+WASI_SDK_PATH := /home/enebo/Applications/wasi-sdk
 
 MAKEDIRS ?= mkdir -p
 RMALL ?= rm -f -r
@@ -39,9 +39,11 @@ build/libprism.a: $(STATIC_OBJECTS)
 	$(ECHO) "building $@ with $(AR)"
 	$(Q) $(AR) $(ARFLAGS) $@ $(STATIC_OBJECTS) $(Q1:0=>/dev/null)
 
+# I added -Wno-incompatible-pointer-types which masked out something
+# which could be a valid problem.
 javascript/src/prism.wasm: Makefile $(SOURCES) $(HEADERS)
 	$(ECHO) "building $@"
-	$(Q) $(WASI_SDK_PATH)/bin/clang --sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot/ $(DEBUG_FLAGS) -DPRISM_EXPORT_SYMBOLS -D_WASI_EMULATED_MMAN -lwasi-emulated-mman $(CPPFLAGS) $(CFLAGS) -Wl,--export-all -Wl,--no-entry -mexec-model=reactor -o $@ $(SOURCES)
+	$(Q) $(WASI_SDK_PATH)/bin/clang --sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot/ $(DEBUG_FLAGS) -DPRISM_EXCLUDE_JSON -DPRISM_EXCLUDE_PACK -DPRISM_EXCLUDE_PRETTYPRINT -DPRISM_ENCODING_EXCLUDE_FULL -DPRISM_SERIALIZE_ONLY_SEMANTICS_FIELDS -DPRISM_EXPORT_SYMBOLS -D_WASI_EMULATED_MMAN -lwasi-emulated-mman $(CPPFLAGS) $(CFLAGS) -Wl,--export-all -Wl,--no-entry -mexec-model=reactor -I../include -Os -Wno-incompatible-pointer-types -o $@ $(SOURCES)
 
 java-wasm/src/main/resources/prism.wasm: Makefile $(SOURCES) $(HEADERS)
 	$(ECHO) "building $@"
