@@ -41,11 +41,11 @@ build/libprism.a: $(STATIC_OBJECTS)
 
 javascript/src/prism.wasm: Makefile $(SOURCES) $(HEADERS)
 	$(ECHO) "building $@"
-	$(Q) $(WASI_SDK_PATH)/bin/clang --sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot/ $(DEBUG_FLAGS) -DPRISM_EXCLUDE_JSON -DPRISM_EXCLUDE_PACK -DPRISM_EXCLUDE_PRETTYPRINT -DPRISM_ENCODING_EXCLUDE_FULL -DPRISM_SERIALIZE_ONLY_SEMANTICS_FIELDS -DPRISM_EXPORT_SYMBOLS -D_WASI_EMULATED_MMAN -lwasi-emulated-mman $(CPPFLAGS) $(CFLAGS) -Wl,--export-all -Wl,--no-entry -mexec-model=reactor -I../include -o $@ $(SOURCES)
+	$(Q) $(WASI_SDK_PATH)/bin/clang --sysroot=$(WASI_SDK_PATH)/share/wasi-sysroot/ $(DEBUG_FLAGS) -DPRISM_EXCLUDE_JSON -DPRISM_EXCLUDE_PRETTYPRINT -DPRISM_SERIALIZE_ONLY_SEMANTICS_FIELDS -DPRISM_EXPORT_SYMBOLS -D_WASI_EMULATED_MMAN -lwasi-emulated-mman $(CPPFLAGS) $(CFLAGS) -Wl,--export-all -Wl,--no-entry -mexec-model=reactor -I../include -o $@ $(SOURCES)
 
 java-wasm/src/main/resources/prism.wasm: Makefile $(SOURCES) $(HEADERS)
 	$(ECHO) "building $@"
-	$(Q) $(WASI_SDK_PATH)/bin/clang $(DEBUG_FLAGS) -DPRISM_EXPORT_SYMBOLS -D_WASI_EMULATED_MMAN -lwasi-emulated-mman $(CPPFLAGS) $(CFLAGS) -Wl,--export-all -Wl,--no-entry -mexec-model=reactor -lc++ -lc++abi -o $@ $(SOURCES)
+	$(Q) $(WASI_SDK_PATH)/bin/clang $(DEBUG_FLAGS) -DPRISM_EXPORT_SYMBOLS -D_WASI_EMULATED_MMAN -lwasi-emulated-mman $(CPPFLAGS) $(CFLAGS) -Wl,--export-all -Wl,--no-entry -mexec-model=rea<ctor -lc++ -lc++abi -o $@ $(SOURCES)
 
 build/shared/%.o: src/%.c Makefile $(HEADERS)
 	$(ECHO) "compiling $@"
