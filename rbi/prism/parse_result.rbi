@@ -13,6 +13,12 @@ class Prism::Source
   sig { params(source: String, start_line: Integer, offsets: T::Array[Integer]).void }
   def initialize(source, start_line = 1, offsets = []); end
 
+  sig { params(start_line: Integer).void }
+  def replace_start_line(start_line); end
+
+  sig { params(offsets: T::Array[Integer]).void }
+  def replace_offsets(offsets); end
+
   sig { returns(Encoding) }
   def encoding; end
 
@@ -384,4 +390,15 @@ class Prism::Token
 
   sig { params(other: T.untyped).returns(T::Boolean) }
   def ==(other); end
+end
+
+class Prism::Scope
+  sig { returns(T::Array[Symbol]) }
+  def locals; end
+
+  sig { returns(T::Array[Symbol]) }
+  def forwarding; end
+
+  sig { params(locals: T::Array[Symbol], forwarding: T::Array[Symbol]).void }
+  def initialize(locals, forwarding); end
 end

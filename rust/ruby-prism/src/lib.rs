@@ -19,7 +19,259 @@ use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 pub use self::bindings::*;
-use ruby_prism_sys::{pm_comment_t, pm_diagnostic_t, pm_node_destroy, pm_node_t, pm_parse, pm_parser_free, pm_parser_init, pm_parser_t};
+use ruby_prism_sys::{pm_comment_t, pm_constant_id_list_t, pm_constant_id_t, pm_diagnostic_t, pm_integer_t, pm_location_t, pm_magic_comment_t, pm_node_destroy, pm_node_list, pm_node_t, pm_parse, pm_parser_free, pm_parser_init, pm_parser_t};
+
+/// A range in the source file.
+pub struct Location<'pr> {
+    parser: NonNull<pm_parser_t>,
+    pub(crate) start: *const u8,
+    pub(crate) end: *const u8,
+    marker: PhantomData<&'pr [u8]>,
+}
+
+impl<'pr> Location<'pr> {
+    /// Returns a byte slice for the range.
+    #[must_use]
+    pub fn as_slice(&self) -> &'pr [u8] {
+        unsafe {
+            let len = usize::try_from(self.end.offset_from(self.start)).expect("end should point to memory after start");
+            std::slice::from_raw_parts(self.start, len)
+        }
+    }
+
+    /// Return a Location from the given `pm_location_t`.
+    #[must_use]
+    pub(crate) const fn new(parser: NonNull<pm_parser_t>, loc: &'pr pm_location_t) -> Location<'pr> {
+        Location {
+            parser,
+            start: loc.start,
+            end: loc.end,
+            marker: PhantomData,
+        }
+    }
+
+    /// Return a Location starting at self and ending at the end of other.
+    /// Returns None if both locations did not originate from the same parser,
+    /// or if self starts after other.
+    #[must_use]
+    pub fn join(&self, other: &Location<'pr>) -> Option<Location<'pr>> {
+        if self.parser != other.parser || self.start > other.start {
+            None
+        } else {
+            Some(Location {
+                parser: self.parser,
+                start: self.start,
+                end: other.end,
+                marker: PhantomData,
+            })
+        }
+    }
+
+    /// Return the start offset from the beginning of the parsed source.
+    #[must_use]
+    pub fn start_offset(&self) -> usize {
+        unsafe {
+            let parser_start = (*self.parser.as_ptr()).start;
+            usize::try_from(self.start.offset_from(parser_start)).expect("start should point to memory after the parser's start")
+        }
+    }
+
+    /// Return the end offset from the beginning of the parsed source.
+    #[must_use]
+    pub fn end_offset(&self) -> usize {
+        unsafe {
+            let parser_start = (*self.parser.as_ptr()).start;
+            usize::try_from(self.end.offset_from(parser_start)).expect("end should point to memory after the parser's start")
+        }
+    }
+}
+
+impl std::fmt::Debug for Location<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let slice: &[u8] = self.as_slice();
+
+        let mut visible = String::new();
+        visible.push('"');
+
+        for &byte in slice {
+            let part: Vec<u8> = std::ascii::escape_default(byte).collect();
+            visible.push_str(std::str::from_utf8(&part).unwrap());
+        }
+
+        visible.push('"');
+        write!(f, "{visible}")
+    }
+}
+
+/// An iterator over the nodes in a list.
+pub struct NodeListIter<'pr> {
+    parser: NonNull<pm_parser_t>,
+    pointer: NonNull<pm_node_list>,
+    index: usize,
+    marker: PhantomData<&'pr mut pm_node_list>,
+}
+
+impl<'pr> Iterator for NodeListIter<'pr> {
+    type Item = Node<'pr>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= unsafe { self.pointer.as_ref().size } {
+            None
+        } else {
+            let node: *mut pm_node_t = unsafe { *(self.pointer.as_ref().nodes.add(self.index)) };
+            self.index += 1;
+            Some(Node::new(self.parser, node))
+        }
+    }
+}
+
+/// A list of nodes.
+pub struct NodeList<'pr> {
+    parser: NonNull<pm_parser_t>,
+    pointer: NonNull<pm_node_list>,
+    marker: PhantomData<&'pr mut pm_node_list>,
+}
+
+impl<'pr> NodeList<'pr> {
+    /// Returns an iterator over the nodes.
+    #[must_use]
+    pub fn iter(&self) -> NodeListIter<'pr> {
+        NodeListIter {
+            parser: self.parser,
+            pointer: self.pointer,
+            index: 0,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl std::fmt::Debug for NodeList<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.iter().collect::<Vec<_>>())
+    }
+}
+
+/// A handle for a constant ID.
+pub struct ConstantId<'pr> {
+    parser: NonNull<pm_parser_t>,
+    id: pm_constant_id_t,
+    marker: PhantomData<&'pr mut pm_constant_id_t>,
+}
+
+impl<'pr> ConstantId<'pr> {
+    fn new(parser: NonNull<pm_parser_t>, id: pm_constant_id_t) -> Self {
+        ConstantId { parser, id, marker: PhantomData }
+    }
+
+    /// Returns a byte slice for the constant ID.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the constant ID is not found in the constant pool.
+    #[must_use]
+    pub fn as_slice(&self) -> &'pr [u8] {
+        unsafe {
+            let pool = &(*self.parser.as_ptr()).constant_pool;
+            let constant = &(*pool.constants.add((self.id - 1).try_into().unwrap()));
+            std::slice::from_raw_parts(constant.start, constant.length)
+        }
+    }
+}
+
+impl std::fmt::Debug for ConstantId<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.id)
+    }
+}
+
+/// An iterator over the constants in a list.
+pub struct ConstantListIter<'pr> {
+    parser: NonNull<pm_parser_t>,
+    pointer: NonNull<pm_constant_id_list_t>,
+    index: usize,
+    marker: PhantomData<&'pr mut pm_constant_id_list_t>,
+}
+
+impl<'pr> Iterator for ConstantListIter<'pr> {
+    type Item = ConstantId<'pr>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= unsafe { self.pointer.as_ref().size } {
+            None
+        } else {
+            let constant_id: pm_constant_id_t = unsafe { *(self.pointer.as_ref().ids.add(self.index)) };
+            self.index += 1;
+            Some(ConstantId::new(self.parser, constant_id))
+        }
+    }
+}
+
+/// A list of constants.
+pub struct ConstantList<'pr> {
+    /// The raw pointer to the parser where this list came from.
+    parser: NonNull<pm_parser_t>,
+
+    /// The raw pointer to the list allocated by prism.
+    pointer: NonNull<pm_constant_id_list_t>,
+
+    /// The marker to indicate the lifetime of the pointer.
+    marker: PhantomData<&'pr mut pm_constant_id_list_t>,
+}
+
+impl<'pr> ConstantList<'pr> {
+    /// Returns an iterator over the constants in the list.
+    #[must_use]
+    pub fn iter(&self) -> ConstantListIter<'pr> {
+        ConstantListIter {
+            parser: self.parser,
+            pointer: self.pointer,
+            index: 0,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl std::fmt::Debug for ConstantList<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.iter().collect::<Vec<_>>())
+    }
+}
+
+/// A handle for an arbitarily-sized integer.
+pub struct Integer<'pr> {
+    /// The raw pointer to the integer allocated by prism.
+    pointer: *const pm_integer_t,
+
+    /// The marker to indicate the lifetime of the pointer.
+    marker: PhantomData<&'pr mut pm_constant_id_t>,
+}
+
+impl<'pr> Integer<'pr> {
+    fn new(pointer: *const pm_integer_t) -> Self {
+        Integer { pointer, marker: PhantomData }
+    }
+}
+
+impl std::fmt::Debug for Integer<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.pointer)
+    }
+}
+
+impl TryInto<i32> for Integer<'_> {
+    type Error = ();
+
+    fn try_into(self) -> Result<i32, Self::Error> {
+        let negative = unsafe { (*self.pointer).negative };
+        let length = unsafe { (*self.pointer).length };
+
+        if length == 0 {
+            i32::try_from(unsafe { (*self.pointer).value }).map_or(Err(()), |value| if negative { Ok(-value) } else { Ok(value) })
+        } else {
+            Err(())
+        }
+    }
+}
 
 /// A diagnostic message that came back from the parser.
 #[derive(Debug)]
@@ -76,6 +328,35 @@ impl<'pr> Comment<'pr> {
     }
 }
 
+/// A magic comment that was found during parsing.
+#[derive(Debug)]
+pub struct MagicComment<'pr> {
+    comment: NonNull<pm_magic_comment_t>,
+    marker: PhantomData<&'pr pm_magic_comment_t>,
+}
+
+impl<'pr> MagicComment<'pr> {
+    /// Returns the text of the comment's key.
+    #[must_use]
+    pub fn key(&self) -> &[u8] {
+        unsafe {
+            let start = self.comment.as_ref().key_start;
+            let len = self.comment.as_ref().key_length as usize;
+            std::slice::from_raw_parts(start, len)
+        }
+    }
+
+    /// Returns the text of the comment's value.
+    #[must_use]
+    pub fn value(&self) -> &[u8] {
+        unsafe {
+            let start = self.comment.as_ref().value_start;
+            let len = self.comment.as_ref().value_length as usize;
+            std::slice::from_raw_parts(start, len)
+        }
+    }
+}
+
 /// A struct created by the `errors` or `warnings` methods on `ParseResult`. It
 /// can be used to iterate over the diagnostics in the parse result.
 pub struct Diagnostics<'pr> {
@@ -113,6 +394,27 @@ impl<'pr> Iterator for Comments<'pr> {
         if let Some(comment) = NonNull::new(self.comment) {
             let current = Comment { comment, parser: self.parser, marker: PhantomData };
             self.comment = unsafe { comment.as_ref().node.next.cast::<pm_comment_t>() };
+            Some(current)
+        } else {
+            None
+        }
+    }
+}
+
+/// A struct created by the `magic_comments` method on `ParseResult`. It can be used
+/// to iterate over the magic comments in the parse result.
+pub struct MagicComments<'pr> {
+    comment: *mut pm_magic_comment_t,
+    marker: PhantomData<&'pr pm_magic_comment_t>,
+}
+
+impl<'pr> Iterator for MagicComments<'pr> {
+    type Item = MagicComment<'pr>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(comment) = NonNull::new(self.comment) {
+            let current = MagicComment { comment, marker: PhantomData };
+            self.comment = unsafe { comment.as_ref().node.next.cast::<pm_magic_comment_t>() };
             Some(current)
         } else {
             None
@@ -198,6 +500,19 @@ impl<'pr> ParseResult<'pr> {
         }
     }
 
+    /// Returns an iterator that can be used to iterate over the magic comments in the
+    /// parse result.
+    #[must_use]
+    pub fn magic_comments(&self) -> MagicComments<'_> {
+        unsafe {
+            let list = &mut (*self.parser.as_ptr()).magic_comment_list;
+            MagicComments {
+                comment: list.head.cast::<pm_magic_comment_t>(),
+                marker: PhantomData,
+            }
+        }
+    }
+
     /// Returns an optional location of the __END__ marker and the rest of the content of the file.
     #[must_use]
     pub fn data_loc(&self) -> Option<Location<'_>> {
@@ -263,6 +578,26 @@ mod tests {
             let text = std::str::from_utf8(comment.text()).unwrap();
             assert!(text.starts_with("# comment"));
         }
+    }
+
+    #[test]
+    fn magic_comments_test() {
+        use crate::MagicComment;
+
+        let source = "# typed: ignore\n# typed:true\n#typed: strict\n";
+        let result = parse(source.as_ref());
+
+        let comments: Vec<MagicComment<'_>> = result.magic_comments().collect();
+        assert_eq!(3, comments.len());
+
+        assert_eq!(b"typed", comments[0].key());
+        assert_eq!(b"ignore", comments[0].value());
+
+        assert_eq!(b"typed", comments[1].key());
+        assert_eq!(b"true", comments[1].value());
+
+        assert_eq!(b"typed", comments[2].key());
+        assert_eq!(b"strict", comments[2].value());
     }
 
     #[test]

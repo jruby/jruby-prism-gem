@@ -1,21 +1,22 @@
 PATH
   remote: .
   specs:
-    jruby-prism-parser (1.2.0-java)
+    jruby-prism-parser (1.4.0-java)
 
 GEM
   remote: https://rubygems.org/
   specs:
     benchmark-ips (2.14.0)
-    power_assert (2.0.4)
+    power_assert (2.0.5)
     rake (13.2.1)
-    rake-compiler (1.2.8)
+    rake-compiler (1.2.9)
       rake
-    test-unit (3.6.2)
+    test-unit (3.6.7)
       power_assert
 
 PLATFORMS
-  universal-java-11
+  universal-java-1.8
+  universal-java-23
 
 DEPENDENCIES
   benchmark-ips
@@ -25,9 +26,10 @@ DEPENDENCIES
   parser
   rake
   rake-compiler
+  rdoc
   ruby_memcheck
   ruby_parser
   test-unit
 
 BUNDLED WITH
-   2.3.26
+   2.6.3

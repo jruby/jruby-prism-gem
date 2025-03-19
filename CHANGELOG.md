@@ -6,6 +6,49 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [1.4.0] - 2025-03-18
+
+### Added
+
+- Support `3.5` as a version option.
+- Many, many compatibility fixes for the parser translation layer.
+- Handle escapes in named capture names.
+- The `freeze` option is added to the various `Prism::` APIs to deeply freeze the AST.
+- Properly support `it` for the parser and ruby_parser translation layers.
+- Track the `then` keyword on `rescue` nodes.
+- Add a `multiple_statements?` flag to parentheses nodes to support desired `defined?` behavior.
+
+### Changed
+
+- The strings used in the AST are now frozen.
+- Fixed handling escaped characters after control sequences in character literals.
+- Fix reading off the end of an unterminated global variable.
+- Raise a syntax error for defining `[]=` with endless method syntax.
+- Increase value of `PRISM_DEPTH_MAXIMUM` to `10000`.
+- Freeze `Prism::VERSION`.
+- Fix up rescue modifier precedence.
+
+## [1.3.0] - 2024-12-21
+
+### Added
+
+- Introduce `Prism::StringQuery`.
+- Introduce `Prism::Relocation`.
+- Track `do` keyword for `WhileNode` and `UntilNode`.
+- Change the way the gem is built to rely on `mkmf` instead of `make`.
+- Lots more documentation on node fields.
+
+### Changed
+
+- Properly add an error for `def @foo; end`.
+- Properly add an error for `foo(**, *)`.
+- Fix up regression in string parsing in `RubyParser` translation.
+- Reject invalid dot method call after match expression.
+- Reject invalid operator after match expression.
+- Fix up %-literals delimited by newlines.
+- Properly add an error for `-> { _1; -> { _1 } }`.
+- Reject blocks and keywords in index writes.
+
 ## [1.2.0] - 2024-10-10
 
 ### Added
@@ -606,7 +649,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - 🎉 Initial release! 🎉
 
-[unreleased]: https://github.com/ruby/prism/compare/v1.2.0...HEAD
+[unreleased]: https://github.com/ruby/prism/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/ruby/prism/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/ruby/prism/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ruby/prism/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ruby/prism/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ruby/prism/compare/v0.30.0...v1.0.0
