@@ -65,20 +65,22 @@ Prism::Template::TEMPLATES.each do |filepath|
 end
 
 task :vendor_jar do
-  ENV["JARS_HOME"]='.'
-
   require 'jars/installer'
   require 'fileutils'
   require_relative 'lib/prism/version'
   Jars::Installer.vendor_jars!
 
-  # I am doing something weird to bend jars installer to my will.
-  FileUtils.rm_rf "home" if FileTest.exist? "home"
-  Dir['*.jar'].each do |file|
-    FileUtils.rm file unless file == "jruby-prism-#{Prism::VERSION}.jar"
+  # vendor_jars! is mysterious.  I have had it put the files under
+  # lib but currently in this project it makes a directory 'home'
+  # and stuffs all deps (not just the one specified) in there.
+  # This task will find the jar we care about and then move it into
+  # place to finish gem build.
+
+  Dir["**/jruby-prism-#{Prism::VERSION}.jar"].each do |file|
+    FileUtils.mv file, 'jruby-prism.jar'
   end
 
-  FileUtils.mv "jruby-prism-#{Prism::VERSION}.jar", 'jruby-prism.jar'
+  FileUtils.rm_rf "home" if FileTest.exist? "home"
 end
 
 namespace :build do

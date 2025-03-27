@@ -74,3 +74,4 @@ compile_commands.json
 .vscode/
 
 tags
+.tool-versions

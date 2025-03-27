@@ -34,6 +34,7 @@ task check_manifest: :templates do
   ]
 
   ignore_files = %w[
+    .tool-versions
     .ruby-version
     .editorconfig
     .git-blame-ignore-revs
