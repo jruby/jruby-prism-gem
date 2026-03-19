@@ -24,6 +24,7 @@ module Prism # :nodoc:
   module WASM
     java_import org.ruby_lang.prism.wasm.Prism
 
+    # TODO: concurrency
     PRISM = org.ruby_lang.prism.wasm.Prism.new
   end
   private_constant :WASM
